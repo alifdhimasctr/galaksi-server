@@ -1,12 +1,12 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { Siswa, Tentor, Mitra, Admin } = require('../models');
-const { Op } = require('sequelize');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { Siswa, Tentor, Mitra, Admin } = require("../models");
+const { Op } = require("sequelize");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const createAdmin = async (adminData) => {
-  try{
+  try {
     const { username, password } = adminData;
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -16,46 +16,53 @@ const createAdmin = async (adminData) => {
     });
 
     return newAdmin;
+  } catch (error) {
+    console.error("Error creating admin:", error);
+    throw new Error("Failed to create admin");
   }
-  catch (error) {
-    console.error('Error creating admin:', error);
-    throw new Error('Failed to create admin');
-  }
-}
+};
 
 const createTentor = async (tentorData) => {
-  const { name, noHp, gender, address, city, faculty, university, schoolLevel } = tentorData;
-  
+  const {
+    name,
+    noHp,
+    gender,
+    address,
+    city,
+    faculty,
+    university,
+    schoolLevel,
+  } = tentorData;
+
   const password = process.env.DEFAULT_PASSWORD;
   if (!password) {
-    throw new Error('DEFAULT_PASSWORD belum diatur di environment variables');
+    throw new Error("DEFAULT_PASSWORD belum diatur di environment variables");
   }
   const hashedPassword = await bcrypt.hash(password, 10);
-  
 
   const username = name ? name.toLowerCase().replace(/\s+/g, "") : null;
-  
+
   const newTentor = await Tentor.create({
     ...tentorData,
     username,
     password: hashedPassword,
+    level: schoolLevel, // mapping di sini
   });
 
   return newTentor;
 };
 
 const createMitra = async (mitraData) => {
-  const { name, email, branch, address, city, noHp} = mitraData;
-  
+  const { name, email, branch, address, city, noHp } = mitraData;
+
   const password = process.env.DEFAULT_PASSWORD;
   if (!password) {
-    throw new Error('DEFAULT_PASSWORD belum diatur di environment variables');
+    throw new Error("DEFAULT_PASSWORD belum diatur di environment variables");
   }
   const hashedPassword = await bcrypt.hash(password, 10);
-  
 
   const username = name ? name.toLowerCase().replace(/\s+/g, "") : null;
-  
+
   const newMitra = await Mitra.create({
     ...mitraData,
     username,
@@ -66,22 +73,31 @@ const createMitra = async (mitraData) => {
 };
 
 const createSiswa = async (siswaData) => {
-  const { name, noHp, email, gender, parentName, parentJob, address, city, purpose, schoolLevel } = siswaData;
+  const {
+    name,
+    noHp,
+    email,
+    gender,
+    parentName,
+    parentJob,
+    address,
+    city,
+    purpose,
+    schoolLevel, // masih diterima dari frontend
+  } = siswaData;
 
   const password = process.env.DEFAULT_PASSWORD;
   if (!password) {
-    throw new Error('DEFAULT_PASSWORD belum diatur di environment variables');
+    throw new Error("DEFAULT_PASSWORD belum diatur di environment variables");
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const username = name ? name.toLowerCase().replace(/\s+/g, "") : null;
-
   const newSiswa = await Siswa.create({
     ...siswaData,
-    username,
     password: hashedPassword,
     role: "siswa",
+    level: schoolLevel, // mapping di sini
   });
 
   return newSiswa;
@@ -97,7 +113,7 @@ const login = async (username, password) => {
     },
   });
   if (user) {
-    role = 'admin'; 
+    role = "admin";
   } else {
     user = await Tentor.findOne({
       where: {
@@ -105,25 +121,23 @@ const login = async (username, password) => {
       },
     });
     if (user) {
-      role = 'tentor'; 
+      role = "tentor";
     } else {
-
       user = await Mitra.findOne({
         where: {
           username,
         },
       });
       if (user) {
-        role = 'mitra'; 
+        role = "mitra";
       } else {
-
         user = await Siswa.findOne({
           where: {
             username,
           },
         });
         if (user) {
-          role = 'siswa'; 
+          role = "siswa";
         }
       }
     }
@@ -142,9 +156,9 @@ const login = async (username, password) => {
     {
       id: user.id,
       username: user.username,
-      role: role,  
+      role: role,
     },
-    JWT_SECRET, 
+    JWT_SECRET
   );
 
   return {
@@ -152,7 +166,7 @@ const login = async (username, password) => {
     user: {
       id: user.id,
       username: user.username,
-      role: role, 
+      role: role,
     },
   };
 };
@@ -160,21 +174,20 @@ const login = async (username, password) => {
 const getAllUsers = async (role) => {
   let users;
 
-
   switch (role) {
-    case 'admin':
+    case "admin":
       users = await Admin.findAll();
       break;
-    case 'tentor':
+    case "tentor":
       users = await Tentor.findAll();
       break;
-    case 'mitra':
+    case "mitra":
       users = await Mitra.findAll();
       break;
-    case 'siswa':
+    case "siswa":
       users = await Siswa.findAll();
       break;
-    case 'all':
+    case "all":
       users = await Promise.all([
         Admin.findAll(),
         Tentor.findAll(),
@@ -183,14 +196,10 @@ const getAllUsers = async (role) => {
       ]);
       break;
     default:
-      throw new Error('Role tidak valid');
+      throw new Error("Role tidak valid");
   }
   return users;
 };
-
-
-
-
 
 module.exports = {
   createAdmin,
@@ -199,4 +208,4 @@ module.exports = {
   createSiswa,
   login,
   getAllUsers,
-}
+};
