@@ -63,7 +63,7 @@ const getMapelByName = async (name) => {
     }
 }
 
-const updateMapel = async (id, updatedData) => {
+const updateMapel = async (id, updatedData) => { 
     try {
         const mapel = await Mapel.findOne({
             where: {
@@ -73,8 +73,13 @@ const updateMapel = async (id, updatedData) => {
         if (!mapel) {
             throw new Error("Mapel tidak ditemukan");
         }
-        
 
+        // Jika ada perubahan pada name, update id juga
+        if (updatedData.name && updatedData.name !== mapel.name) {
+            updatedData.id = updatedData.name.toLowerCase().replace(/\s+/g, '');
+        }
+
+        // Perbarui mapel
         await mapel.update(updatedData);
         return mapel;
     } catch (error) {

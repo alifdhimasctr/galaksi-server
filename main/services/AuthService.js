@@ -24,14 +24,9 @@ const createAdmin = async (adminData) => {
 
 const createTentor = async (tentorData) => {
   const {
-    name,
-    noHp,
-    gender,
-    address,
-    city,
-    faculty,
-    university,
-    schoolLevel,
+    name, noHp, gender, address, city,
+    faculty, university, schoolLevel,
+    foto, sim                                            
   } = tentorData;
 
   const password = process.env.DEFAULT_PASSWORD;
@@ -46,7 +41,9 @@ const createTentor = async (tentorData) => {
     ...tentorData,
     username,
     password: hashedPassword,
-    level: schoolLevel, // mapping di sini
+    level: schoolLevel,
+    foto,
+    sim,
   });
 
   return newTentor;
@@ -83,7 +80,7 @@ const createSiswa = async (siswaData) => {
     address,
     city,
     purpose,
-    schoolLevel, // masih diterima dari frontend
+   level, // masih diterima dari frontend
   } = siswaData;
 
   const password = process.env.DEFAULT_PASSWORD;
@@ -91,13 +88,28 @@ const createSiswa = async (siswaData) => {
     throw new Error("DEFAULT_PASSWORD belum diatur di environment variables");
   }
 
+  let username = name.toLowerCase().replace(/\s+/g, "");
+  const existingSiswa = await Siswa.findOne({
+    where: {
+      username: {
+        [Op.like]: `${username}%`,
+      },
+    },
+    order: [["username", "DESC"]],
+  });
+
+  if (existingSiswa) {
+    const match = existingSiswa.username.match(/(\d+)$/);
+    const increment = match ? parseInt(match[1], 10) + 1 : 1;
+    username = `${username}${increment}`;
+  }
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const newSiswa = await Siswa.create({
     ...siswaData,
+    username: username,
     password: hashedPassword,
     role: "siswa",
-    level: schoolLevel, // mapping di sini
   });
 
   return newSiswa;
@@ -174,7 +186,7 @@ const login = async (username, password) => {
 const getAllUsers = async (role) => {
   let users;
 
-  switch (role) {
+  switch (role) {  
     case "admin":
       users = await Admin.findAll();
       break;

@@ -30,4 +30,27 @@ router.put('/order/approve/:id', async (req, res) => {
     }
 });
 
+router.put('/order/reject/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedOrder = await OrderService.rejectOrder(id);
+        res.status(200).json({
+            message: 'Order berhasil di-reject!',
+            order: updatedOrder,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+router.get('/order/:status', authMiddleware, async (req, res) => {
+    try {
+        const { status } = req.params;
+        const orders = await OrderService.getAllOrder(status);
+        res.status(200).json(orders);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 module.exports = router;

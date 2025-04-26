@@ -1,8 +1,8 @@
 // services/OrderService.js
-const dayjs                = require("dayjs");
-const weekday              = require("dayjs/plugin/weekday");
-const isSameOrAfter        = require("dayjs/plugin/isSameOrAfter");
-const db                   = require("../../database/db");
+const dayjs = require("dayjs");
+const weekday = require("dayjs/plugin/weekday");
+const isSameOrAfter = require("dayjs/plugin/isSameOrAfter");
+const db = require("../../database/db");
 
 // ===== Models ================================================================
 const {
@@ -11,12 +11,15 @@ const {
   Subscription,
   Invoice,
   Jadwal,
-  Tentor,      // NEW
-  Siswa        // NEW
+  Tentor, // NEW
+  Siswa, // NEW
 } = require("../models");
 
-const { DAY_NAME_TO_NUM, nextMatchingDate } = require("../../helper/dayMapping");
-const { generateJadwal }                     = require("./JadwalService");
+const {
+  DAY_NAME_TO_NUM,
+  nextMatchingDate,
+} = require("../../helper/dayMapping");
+const { generateJadwal } = require("./JadwalService");
 
 dayjs.extend(weekday);
 dayjs.extend(isSameOrAfter);
@@ -59,7 +62,7 @@ async function validateOrderPayload(payload) {
 async function createOrder(orderData) {
   const t = await db.transaction();
   try {
-    const paket = await validateOrderPayload(orderData);           // NEW
+    const paket = await validateOrderPayload(orderData); // NEW
     // Insert order
     const order = await Order.create(orderData, { transaction: t });
 
@@ -71,12 +74,13 @@ async function createOrder(orderData) {
   }
 }
 
-
+/* -------------------------------------------------------------------------- */
+/*                                APPROVE ORDER                               */
+/* -------------------------------------------------------------------------- */
 async function approveOrder(orderId) {
-  const t = await db.transaction(); 
+  const t = await db.transaction();
   try {
-   
-    const order = await Order.findByPk(orderId, { lock: true, transaction: t }); 
+    const order = await Order.findByPk(orderId, { lock: true, transaction: t });
     if (!order) throw new Error("Order tidak ditemukan");
     if (order.status === "Approve") throw new Error("Order sudah di‑approve");
 
@@ -84,7 +88,6 @@ async function approveOrder(orderId) {
     if (!paket || paket.status !== "Aktif")
       throw new Error("Paket tidak ditemukan / non‑aktif");
 
-    
     const tentor = await Tentor.findByPk(order.tentorId, { transaction: t });
     if (!tentor || tentor.status !== "active")
       throw new Error("Tentor tidak valid / non‑aktif");
@@ -104,10 +107,10 @@ async function approveOrder(orderId) {
 
     const inv = await Invoice.create(
       {
-        orderId:        order.id,
+        orderId: order.id,
         subscriptionId: sub.id,
-        paketId:        paket.id,
-        paymentStatus:  "Unpaid",
+        paketId: paket.id,
+        paymentStatus: "Unpaid",
       },
       { transaction: t }
     );
@@ -125,18 +128,67 @@ async function approveOrder(orderId) {
   }
 }
 
-async function getAllOrder(status = "all") {
-  const where = status === "all" ? {} : { status };
-  const orders = await Order.findAll({ where });
+/* -------------------------------------------------------------------------- */
+/*                                REJECT ORDER                                */
+/* -------------------------------------------------------------------------- */
+async function rejectOrder(orderId) {
+  
+    const t = await db.transaction();
+    try {
+      const order = await Order.findByPk(orderId, { lock: true, transaction: t });
+      if (!order) throw new Error("Order tidak ditemukan");
+      if (order.status === "Reject") throw new Error("Order sudah di‑reject");
+  
+      order.status = "Reject";
+      await order.save({ transaction: t });
+  
+      await t.commit();
+      return order;
+    } catch (err) {
+      await t.rollback();
+      throw new Error(`Error saat reject order: ${err.message}`);
+    }
+  }
 
-  if (orders.length === 0)
-    throw new Error("Tidak ada order yang ditemukan");
-
-  return orders;
+/* -------------------------------------------------------------------------- */
+/*                                GET ALL ORDER                               */
+/* -------------------------------------------------------------------------- */
+async function getAllOrder(status) {
+  try {
+    let orders;
+    switch (status) {
+      case "all":
+        orders = await Order.findAll();
+        break;
+      case "Approve":
+        orders = await Order.findAll({
+          where: { status: "Approve" },
+        });
+        break;
+      case "NonApprove":
+        orders = await Order.findAll({
+          where: { status: "NonApprove" },
+        });
+        break;
+      case "Reject":
+        orders = await Order.findAll({
+          where: { status: "Reject" },
+        });
+        break;
+      default: throw new Error("Status tidak valid");  
+    }
+    if (orders.length === 0) {
+      throw new Error("Tidak ada order yang ditemukan");
+    }
+    return orders;
+  } catch (error) {
+    throw new Error(`Error saat mendapatkan semua order: ${error.message}`);
+  }
 }
 
 module.exports = {
   createOrder,
   approveOrder,
+  rejectOrder,
   getAllOrder,
 };

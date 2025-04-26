@@ -33,6 +33,10 @@ const Tentor = db.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     gender: {
       type: DataTypes.ENUM("L", "P"),
       allowNull: false,
@@ -74,19 +78,33 @@ const Tentor = db.define(
     },
     bankName: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: false,
     },
     bankNumber: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: false,
     },
     foto: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: false,
     },
     sim: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: false,
+    },
+    fotoUrl: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('foto')}`;
+      },
+      set(value) { throw new Error('Do not try to set `fotoUrl`'); }
+    },
+    simUrl: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('sim')}`;
+      },
+      set(value) { throw new Error('Do not try to set `simUrl`'); }
     },
     createdAt: {
       type: DataTypes.DATE,

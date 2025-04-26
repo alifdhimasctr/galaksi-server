@@ -1,5 +1,5 @@
 //MapelModel.js
-const { DataTypes } = require('sequelize');
+const { DataTypes, UUIDV4 } = require('sequelize');
 const db = require('../../database/db');
 
 const Mapel = db.define(
@@ -8,6 +8,7 @@ const Mapel = db.define(
     id: {
       type: DataTypes.STRING,
       primaryKey: true,
+      defaultValue: UUIDV4,
     },
     name: {
       type: DataTypes.STRING,
@@ -22,19 +23,15 @@ const Mapel = db.define(
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
-  },
-  {
-    hooks: {
-      beforeValidate: async (mapel) => {
-        if (!mapel.id && mapel.name) {
-          mapel.id = mapel.name.toLowerCase().replace(/\s+/g, '');
-        }
-
-        const existing = await Mapel.findOne({ where: { name: mapel.name } });
-        if (existing) throw new Error('Mapel with this name already exists');
-      },
-    },
-  },
+  }
 );
+
+// Mapel.sync({ force: true })
+//   .then(() => {
+//     console.log('Mapel table created');
+//   })
+//   .catch((error) => {
+//     console.error('Error creating Mapel table:', error);
+//   }); 
 
 module.exports = { Mapel };
