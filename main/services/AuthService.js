@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { Siswa, Tentor, Mitra, Admin } = require("../models");
 const { Op, Sequelize } = require("sequelize");
 const db = require("../../database/db");
+//test
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
