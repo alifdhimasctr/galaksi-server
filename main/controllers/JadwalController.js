@@ -5,8 +5,7 @@ const JadwalService = require('../services/JadwalService');
 const { authMiddleware } = require('../../middleware');  
 
 
-router.put(
-  '/jadwal/present/:id',
+router.put('/jadwal/present/:id',
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -22,9 +21,7 @@ router.put(
   }
 );
 
-
-router.put(
-  '/jadwal/reschedule/date/:id',
+router.put('/jadwal/reschedule/date/:id',
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -45,9 +42,7 @@ router.put(
   }
 );
 
-
-router.put(
-  '/jadwal/reschedule/tentor/:id',
+router.put('/jadwal/reschedule/tentor/:id',
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -64,9 +59,7 @@ router.put(
   }
 );
 
-
-router.put(
-  '/jadwal/reschedule/tentor/approve/:id',
+router.put('/jadwal/reschedule/tentor/approve/:id',
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -87,8 +80,7 @@ router.put(
   }
 );
 
-router.put(
-    '/jadwal/reschedule/tentor/reject/:id',
+router.put('/jadwal/reschedule/tentor/reject/:id',
     async (req, res) => {
         try {
         const { id } = req.params;
@@ -105,8 +97,7 @@ router.put(
     }
 )
 
-router.get(
-    '/jadwal/invoice/:id',
+router.get('/jadwal/invoice/:id',
     async (req, res) => {
       try {
         const { id } = req.params;
@@ -117,6 +108,64 @@ router.get(
       }
     }
   );
+
+router.get('/jadwal/', authMiddleware, async (req, res) => {
+  try {
+    const { status } = req.params; // Get the status parameter from the query string
+    const jadwal = await JadwalService.getAllJadwal(); // Pass the status to the service
+    res.status(200).json(jadwal);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.get('/jadwal/:status', authMiddleware, async (req, res) => {
+  try {
+    const { status } = req.params; // Get the status parameter from the query string
+    const jadwal = await JadwalService.getAllJadwal(status); // Pass the status to the service
+    res.status(200).json(jadwal);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+
+
+router.get('/jadwal/id/:id'
+  , authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const jadwal = await JadwalService.getJadwalById(id);
+      res.status(200).json(jadwal);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  }
+);
+
+router.get('/jadwal/tentor/:id'
+  , authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const jadwal = await JadwalService.getJadwalByTentorId(id);
+      res.status(200).json(jadwal);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  }
+);
+
+router.get('/jadwal/siswa/:id'
+  , authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const jadwal = await JadwalService.getJadwalBySiswaId(id);
+      res.status(200).json(jadwal);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  }
+);
 
 
 module.exports = router;

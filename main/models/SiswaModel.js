@@ -78,6 +78,11 @@ const Siswa = db.define(
       allowNull: false,
       defaultValue: "active",
     },
+    isFirstPurchase: {  //baru
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,

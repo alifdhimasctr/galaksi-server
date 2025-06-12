@@ -1,12 +1,21 @@
-//PaketModel.js
-
 const { DataTypes } = require('sequelize');
 const db = require("../../database/db");
+
+const calculatePrices = (paket) => {
+  if (paket.price && paket.totalSession) {
+    const honorPerSession = Math.round((paket.price * 0.6) / paket.totalSession);
+    const prosharePerSession = Math.round((paket.price * 0.1) / paket.totalSession);
+    
+    paket.honorPrice = honorPerSession;
+    paket.prosharePrice = prosharePerSession;
+  }
+};
 
 const Paket = db.define('Paket', {
   id: {
     type: DataTypes.UUID,
     primaryKey: true,
+    defaultValue: DataTypes.UUIDV4,
   },
   name: {
     type: DataTypes.STRING,
@@ -21,8 +30,8 @@ const Paket = db.define('Paket', {
     allowNull: false,
   },
   level: {
-    type: DataTypes.ENUM('TK', 'SD', 'SMP', 'SMA', 'SNBT'),
-    allowNull: true, // Tidak semua paket membutuhkan level
+    type: DataTypes.ENUM('TK', 'SD', 'SMP', 'SMA', 'SNBT','OTHER'),
+    allowNull: false,
   },
   totalSession: {
     type: DataTypes.INTEGER,
@@ -60,18 +69,26 @@ const Paket = db.define('Paket', {
 },
 {
   hooks: {
-    async beforeValidate(paket) {       
-      const last = await Paket.findOne({ order: [['createdAt', 'DESC']] });
-      const lastNum  = last?.id ? parseInt(last.id.slice(3)) || 0 : 0;   // slice(3) krn 'PK-'
-      paket.id = `PK-${String(lastNum + 1).padStart(4,'0')}`;
-
-      
-      paket.honorPrice = Math.round((paket.price * 0.6) / paket.totalSession);
-      paket.prosharePrice = Math.round((paket.price * 0.1) / paket.totalSession);
+    beforeValidate(paket) {
+      if (paket.isNewRecord) {
+        calculatePrices(paket);
+      }
+    },
+    beforeBulkCreate(pakets) {
+      pakets.forEach(paket => {
+        if (paket.isNewRecord) {
+          calculatePrices(paket);
+        }
+      });
     }
   },
 });
 
+// Paket.sync({ force: true }).then(() => {
+//   console.log("Paket table created successfully!");
+// }).catch((error) => {
+//   console.error("Error creating Paket table:", error);
+// });
 
 module.exports = {
   Paket

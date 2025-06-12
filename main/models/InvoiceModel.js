@@ -7,6 +7,10 @@ const Invoice = db.define('Invoice', {
     type: DataTypes.STRING,
     primaryKey: true,
   },
+  siswaId:{
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   orderId: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -19,10 +23,22 @@ const Invoice = db.define('Invoice', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  price:{
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
   paymentStatus: {
     type: DataTypes.ENUM('Paid', 'Unpaid'),
     allowNull: false,
     defaultValue: 'Unpaid',
+  },
+  paymentDate:{
+    type: DataTypes.DATE,
+    allowNull: true,  
+  },
+  transferProof: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -45,6 +61,15 @@ const Invoice = db.define('Invoice', {
     }
   }
 });
+
+
+// Invoice.sync({ force: true })
+//   .then(() => {
+//     console.log("Invoice table created or updated successfully.");
+//   })
+//   .catch((error) => {
+//     console.error("Error creating or updating Invoice table:", error);
+//   });
 
 module.exports = {
   Invoice

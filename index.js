@@ -31,6 +31,11 @@ const InvoiceController = require("./main/controllers/InvoiceController");
 const JadwalController = require("./main/controllers/JadwalController");
 const SubscriptionController = require("./main/controllers/SubscriptionController");
 const PaymentController = require("./main/controllers/PaymentController");
+const DashboardController = require("./main/controllers/DashboardController");
+const HonorController = require("./main/controllers/honorController");
+const ProshareController = require("./main/controllers/proshareController");
+const TransacttionController = require("./main/controllers/TransactionController");
+
 const path = require("path");
 
 const port = process.env.PORT;
@@ -64,6 +69,10 @@ app.use("/", InvoiceController);
 app.use("/", JadwalController);
 app.use("/", SubscriptionController);
 app.use("/", PaymentController);
+app.use("/", DashboardController);
+app.use("/", HonorController);
+app.use("/", ProshareController);
+app.use("/", TransacttionController);
 
 // Serve static files from the "uploads" directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

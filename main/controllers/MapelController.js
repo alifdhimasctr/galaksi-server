@@ -16,7 +16,7 @@ router.post("/mapel", authMiddlewareRole("admin"), async (req, res) => {
   }
 });
 
-router.get("/mapel", authMiddleware, async (req, res) => {
+router.get("/mapel", async (req, res) => {
   try {
     const mapelList = await MapelService.getAllMapel();
     res.status(200).json(mapelList);

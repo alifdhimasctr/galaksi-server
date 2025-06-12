@@ -28,10 +28,6 @@ const Mitra = db.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    branch: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
     status: {
       type: DataTypes.ENUM("active", "nonactive"),
       allowNull: false,
@@ -59,6 +55,14 @@ const Mitra = db.define(
       allowNull: false,
       defaultValue: 0,
     },
+    bankName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    bankNumber: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
@@ -71,29 +75,29 @@ const Mitra = db.define(
   {
     hooks: {
       beforeCreate: async (mitra) => {
-      const lastMitra = await Mitra.findOne({
-        order: [["createdAt", "DESC"]],
-      });
-      let lastNumber = 0;
-      if (lastMitra && lastMitra.id) {
-        lastNumber = parseInt(lastMitra.id.slice(2)) || 0;
-      }
-      const nextNumber = String(lastNumber + 1).padStart(4, "0");
-      mitra.id = `MT${nextNumber}`;
+        const lastMitra = await Mitra.findOne({
+          order: [["createdAt", "DESC"]],
+        });
+        let lastNumber = 0;
+        if (lastMitra && lastMitra.id) {
+          lastNumber = parseInt(lastMitra.id.slice(2)) || 0;
+        }
+        const nextNumber = String(lastNumber + 1).padStart(4, "0");
+        mitra.id = `MT${nextNumber}`;
 
-      const nextNumber1 = String(lastNumber + 1).padStart(1, "0");
-      mitra.username = mitra.name.toLowerCase().replace(/\s+/g, "");
-      const existingUsername = await Mitra.findOne({
-        where: {
-          username: mitra.username,
-        },
-      });
-      if (existingUsername) {
-        mitra.username = `${mitra.username}${nextNumber1}`;
-      }
-      }
+        const nextNumber1 = String(lastNumber + 1).padStart(1, "0");
+        mitra.username = mitra.name.toLowerCase().replace(/\s+/g, "");
+        const existingUsername = await Mitra.findOne({
+          where: {
+            username: mitra.username,
+          },
+        });
+        if (existingUsername) {
+          mitra.username = `${mitra.username}${nextNumber1}`;
+        }
+      },
     },
-  },
+  }
 );
 
 // Mitra.sync({ force: true })
@@ -103,7 +107,6 @@ const Mitra = db.define(
 //   .catch((error) => {
 //     console.error("Error creating Mitra table:", error);
 //   });
-
 
 module.exports = {
   Mitra,

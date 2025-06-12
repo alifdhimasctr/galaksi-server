@@ -117,7 +117,7 @@ const Tentor = db.define(
   },
   {
     hooks: {
-      beforeCreate: async (tentor) => {
+      beforeValidate: async (tentor) => {
         const lastTentor = await Tentor.findOne({
           order: [["createdAt", "DESC"]],
         });

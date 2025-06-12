@@ -30,7 +30,8 @@ const Jadwal = db.define('Jadwal', {
   },
   dayName: {
     type: DataTypes.ENUM(
-      'Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'
+      'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
+      // 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
     ),
     allowNull: false,
   },

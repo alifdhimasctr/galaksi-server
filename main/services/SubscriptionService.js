@@ -31,7 +31,7 @@ const getAllSubscriptions = async () => {
 const getSubscriptionById = async (id) => {
     try {
         const subscription = await Subscription.findByPk(id);
-        if (!subscription) throw new Error("Subscription not found");
+        if (!subscription) throw new Error("Subscription tidak ditemukan");
         return subscription;
     } catch (error) {
         throw new Error(`Error saat mengambil subscription: ${error.message}`);

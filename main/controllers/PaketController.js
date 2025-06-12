@@ -16,6 +16,20 @@ router.post('/paket', authMiddlewareRole("admin"), async (req, res) => {
   }
 });
 
+router.post('/paket/multiple', authMiddlewareRole("admin"), async (req, res) => {
+  try {
+    const paketDataArray = req.body; // menerima array dari body request
+    const newPaket = await PaketService.createPaketMultiple(paketDataArray);
+    res.status(201).json({
+      message: 'Paket berhasil dibuat!',
+      paket: newPaket,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
 router.get('/paket', async (req, res) => {
   try {
     const paketList = await PaketService.getAllPaket();
@@ -32,6 +46,16 @@ router.get('/paket/:id', authMiddleware, async (req, res) => {
     res.status(200).json(paket);
   } catch (error) {
     res.status(404).json({ message: error.message });
+  }
+});
+
+router.get('/paket/level-category/:level/:category', async (req, res) => {
+  const { level, category } = req.params;
+  try {
+    const paketList = await PaketService.getPaketByLevelCategory(level,category);
+    res.status(200).json(paketList);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

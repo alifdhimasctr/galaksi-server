@@ -10,6 +10,15 @@ const createPaket = async (paketData) => {
   }
 };
 
+const createPaketMultiple = async (paketDataArray) => {
+  try {
+    const newPaket = await Paket.bulkCreate(paketDataArray);
+    return newPaket;
+  } catch (error) {
+    throw new Error(`Error saat membuat paket: ${error.message}`);
+  }
+};
+
 
 const getAllPaket = async () => {
   try {
@@ -28,25 +37,52 @@ const getAllPaket = async () => {
   }
 };
 
-const getPaketByLevel = async (level) => {
+const getPaketByLevelCategory = async (level, category) => {
   try {
+    const orConditions = [
+      { level: level },
+      { level: null }
+    ];
+    if (level === 'SMA') {
+      orConditions.push({ level: 'SNBT' });
+    }
+    
     const paketList = await Paket.findAll({
       where: {
-        [Op.or]: [
-          { level: level },
-          { level: null }
-        ],  
-        status: 'Aktif',  
+        [Op.or]: orConditions,
+        status: 'Aktif',
+        category: category,
       },
     });
-    if (paketList.length === 0) {
-        throw new Error("Tidak ada paket yang ditemukan untuk level ini");
-        }
+    
     return paketList;
   } catch (error) {
     throw new Error(`${error.message}`);
   }
 };
+
+const getPaketByLevel = async (level) => {
+  try {
+    const orConditions = [
+      { level: level },
+      { level: null }
+    ];
+    if (level === 'SMA') {
+      orConditions.push({ level: 'SNBT' });
+    }
+    
+    const paketList = await Paket.findAll({
+      where: {
+        [Op.or]: orConditions,
+        status: 'Aktif',
+      },
+    });
+    
+    return paketList;
+  } catch (error) {
+    throw new Error(`${error.message}`);
+  }
+}
 
 const getPaketById = async (id) => {
   try {
@@ -104,8 +140,10 @@ const deletePaket = async (id) => {
 
 module.exports = {
   createPaket,
+  createPaketMultiple,
   getAllPaket,
   getPaketById,
+  getPaketByLevelCategory,
   getPaketByLevel,
   updatePaket,
   deletePaket,

@@ -1,6 +1,7 @@
 // models/proshare.js
 const { DataTypes } = require('sequelize');
 const db = require("../../database/db");
+const { Invoice } = require('./InvoiceModel');
 
 const Proshare = db.define('Proshare', {
   id: {
@@ -14,19 +15,26 @@ const Proshare = db.define('Proshare', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  siswaId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  invoiceId:{
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   total: {
     type: DataTypes.INTEGER,
     allowNull: false,
-  },
-  status: {
-    type: DataTypes.ENUM('Pending', 'Paid'),
-    allowNull: false,
-    defaultValue: 'Pending',
   },
   paymentStatus: {  
     type: DataTypes.ENUM('Pending', 'Paid'),
     allowNull: false,
     defaultValue: 'Pending',
+  },
+  paymentDate: {
+    type: DataTypes.DATE,
+    allowNull: true,  
   },
   transferProof: {  
     type: DataTypes.STRING,

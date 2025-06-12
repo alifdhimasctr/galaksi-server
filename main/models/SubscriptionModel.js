@@ -11,6 +11,10 @@ const Subscription = db.define('Subscription', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  currentOrderId: {
+  type: DataTypes.STRING,
+  allowNull: false
+},
   paketId: {
     type: DataTypes.STRING,
     allowNull: false,

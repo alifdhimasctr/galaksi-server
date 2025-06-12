@@ -1,6 +1,7 @@
 // models/honor.js
 const { DataTypes } = require('sequelize');
 const db = require("../../database/db");
+const { Invoice } = require('./InvoiceModel');
 
 const Honor = db.define('Honor', {
   id: {
@@ -14,19 +15,26 @@ const Honor = db.define('Honor', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  siswaId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  invoiceId:  {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   total: {
     type: DataTypes.INTEGER,
     allowNull: false,
-  },
-  status: {
-    type: DataTypes.ENUM('Pending', 'Paid'),
-    allowNull: false,
-    defaultValue: 'Pending',
   },
   paymentStatus: {  
     type: DataTypes.ENUM('Pending', 'Paid'),
     allowNull: false,
     defaultValue: 'Pending',
+  },
+  paymentDate:{
+    type: DataTypes.DATE,
+    allowNull: true,
   },
   transferProof: {  
     type: DataTypes.STRING,
