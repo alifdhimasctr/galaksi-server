@@ -24,19 +24,23 @@ router.post('/register/siswa', async (req, res) => {
 router.post('/register/tentor',
   upload.fields([
     { name: 'foto', maxCount: 1 },
-    { name: 'sim',  maxCount: 1 }
+    { name: 'sim',  maxCount: 1 },
+    { name: 'ktp',  maxCount: 1 },
+    { name: 'cv',   maxCount: 1 }
   ]),
   async (req, res) => {
     try {
-      if (!req.files?.foto || !req.files?.sim) {
+      if (!req.files?.foto || !req.files?.sim || !req.files?.ktp || !req.files?.cv) {
         return res.status(400).json({
-          message: 'Foto dan SIM wajib di-upload.',
+          message: 'Foto, SIM, KTP, dan CV wajib di-upload.',
         });
       }
       const tentorData = {
-        ...req.body,                                
+        ...req.body,
         foto: req.files.foto[0].filename,
-        sim : req.files.sim [0].filename,
+        sim : req.files.sim[0].filename,
+        ktp : req.files.ktp[0].filename,
+        cv  : req.files.cv[0].filename,
       };
 
       const user = await authService.createTentor(tentorData);
@@ -160,6 +164,8 @@ router.get('/tentor', async (req, res, next) => {
       const plain = t.toJSON();
       plain.fotoUrl = `${host}/uploads/tentor/${plain.foto}`;
       plain.simUrl  = `${host}/uploads/tentor/${plain.sim}`;
+      plain.ktpUrl  = `${host}/uploads/tentor/${plain.ktp}`;
+      plain.cvUrl   = `${host}/uploads/tentor/${plain.cv}`;
       delete plain.password;              
       return plain;
     });
@@ -187,7 +193,9 @@ router.put('/users/:role/:id', async (req, res) => {
 
 router.put('/tentor/:id', upload.fields([
   { name: 'foto', maxCount: 1 },
-  { name: 'sim', maxCount: 1 }
+  { name: 'sim', maxCount: 1 },
+  { name: 'ktp', maxCount: 1 },
+  { name: 'cv', maxCount: 1 }
 ]), 
 async (req, res) => {
   try {
@@ -196,6 +204,8 @@ async (req, res) => {
       ...req.body,
       foto: req.files?.foto ? req.files.foto[0].filename : undefined, // Only update if a new foto is uploaded
       sim: req.files?.sim ? req.files.sim[0].filename : undefined, // Only update if a new sim is uploaded
+      ktp: req.files?.ktp ? req.files.ktp[0].filename : undefined, // Only update if a new ktp is uploaded
+      cv: req.files?.cv ? req.files.cv[0].filename : undefined, //
     };
 
     // Call the updateTentor service function

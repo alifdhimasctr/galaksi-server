@@ -9,10 +9,6 @@ const Tentor = db.define(
       type: DataTypes.STRING,
       primaryKey: true,
     },
-    mitraId: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -61,6 +57,10 @@ const Tentor = db.define(
       type: DataTypes.JSON,
       allowNull: false,
     },
+    mapel:{
+      type: DataTypes.JSON,
+      allowNull: false,
+    },
     dateJoin: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -88,7 +88,15 @@ const Tentor = db.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    ktp: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     sim: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    cv: {
       type: DataTypes.STRING,
       allowNull: false,
     },
@@ -99,12 +107,26 @@ const Tentor = db.define(
       },
       set(value) { throw new Error('Do not try to set `fotoUrl`'); }
     },
+    ktpUrl: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('ktp')}`;
+      },
+      set(value) { throw new Error('Do not try to set `ktpUrl`'); }
+    },
     simUrl: {
       type: DataTypes.VIRTUAL,
       get() {
         return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('sim')}`;
       },
       set(value) { throw new Error('Do not try to set `simUrl`'); }
+    },
+    cvUrl: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('cv')}`;
+      },
+      set(value) { throw new Error('Do not try to set `cvUrl`'); }
     },
     createdAt: {
       type: DataTypes.DATE,

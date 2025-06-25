@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { Siswa, Tentor, Mitra, Admin } = require("../models");
+const { Siswa, Tentor, Mitra, Admin, Mapel } = require("../models");
 const { Op, Sequelize } = require("sequelize");
 const db = require("../../database/db");
 //test
@@ -46,9 +46,12 @@ const createTentor = async (tentorData) => {
     university,
     level,
     foto,
+    ktp,
     sim,
+    cv,
     bankName,
     bankNumber,
+    mapel,
   } = tentorData;
 
   const password = process.env.DEFAULT_PASSWORD;
@@ -57,7 +60,7 @@ const createTentor = async (tentorData) => {
   }
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const username = name ? name.toLowerCase().replace(/\s+/g, "") : null;
+  let username = name ? name.toLowerCase().replace(/\s+/g, "") : null;
   const existingTentor = await Siswa.findOne({
     where: {
       username: {
@@ -72,21 +75,33 @@ const createTentor = async (tentorData) => {
     const increment = match ? parseInt(match[1], 10) + 1 : 1;
     username = `${username}${increment}`;
   }
+
   let existingUser = await checkUsernameUniqueness(username);
   if (existingUser) {
     const match = username.match(/(\d+)$/);
     const increment = match ? parseInt(match[1], 10) + 1 : 1;
     username = `${username}${increment}`;
   }
-  // Pastikan schoolLevel adalah array, jika tidak, coba parse JSON
+
   let levelArray = [];
   if (Array.isArray(level)) {
     levelArray = level;
   } else if (level) {
     try {
-      levelArray = JSON.parse(level); // Pastikan data dalam format JSON
+      levelArray = JSON.parse(level);
     } catch (error) {
-      throw new Error("Invalid format for schoolLevel");
+      throw new Error("Invalid format for level");
+    }
+  }
+
+  let mapelArray = [];
+  if (Array.isArray(mapel)) {
+    mapelArray = mapel;
+  } else if (mapel) {
+    try {
+      mapelArray = JSON.parse(mapel);
+    } catch (error) {
+      throw new Error("Invalid format for mapel");
     }
   }
 
@@ -94,8 +109,11 @@ const createTentor = async (tentorData) => {
     ...tentorData,
     username,
     password: hashedPassword,
-    level: levelArray, // Simpan sebagai array
+    level: levelArray,
+    mapel: mapelArray,
     foto,
+    ktp,
+    cv,
     sim,
   });
 
@@ -113,12 +131,14 @@ const updateTentor = async (tentorId, tentorData) => {
     university,
     level,
     foto,
+    ktp,
+    cv,
     sim,
     bankName,
     bankNumber,
+    mapel,
   } = tentorData;
 
-  // Fetch the current tentor to ensure we're updating the right record
   const existingTentor = await Tentor.findByPk(tentorId);
   if (!existingTentor) {
     throw new Error("Tentor tidak ditemukan");
@@ -126,36 +146,40 @@ const updateTentor = async (tentorId, tentorData) => {
 
   const updatedData = { ...tentorData };
 
-  // Update password if provided, but keep the existing one if not
   if (tentorData.password) {
     const hashedPassword = await bcrypt.hash(tentorData.password, 10);
     updatedData.password = hashedPassword;
   }
 
-  // If the name has changed, generate a new username
   if (name && name !== existingTentor.name) {
-    const username = name.toLowerCase().replace(/\s+/g, "");
-    updatedData.username = username;
+    updatedData.username = name.toLowerCase().replace(/\s+/g, "");
   }
 
-  // Ensure level is always an array
-  // Pastikan schoolLevel adalah array, jika tidak, coba parse JSON
   let levelArray = [];
   if (Array.isArray(level)) {
     levelArray = level;
   } else if (level) {
     try {
-      levelArray = JSON.parse(level); // Pastikan data dalam format JSON
+      levelArray = JSON.parse(level);
     } catch (error) {
-      throw new Error("Invalid format for schoolLevel");
+      throw new Error("Invalid format for level");
     }
   }
-
   updatedData.level = levelArray;
 
-  // Update the Tentor record with the new data
-  const updatedTentor = await existingTentor.update(updatedData);
+  let mapelArray = [];
+  if (Array.isArray(mapel)) {
+    mapelArray = mapel;
+  } else if (mapel) {
+    try {
+      mapelArray = JSON.parse(mapel);
+    } catch (error) {
+      throw new Error("Invalid format for mapel");
+    }
+  }
+  updatedData.mapel = mapelArray;
 
+  const updatedTentor = await existingTentor.update(updatedData);
   return updatedTentor;
 };
 
@@ -330,16 +354,14 @@ const getAllUsers = async (role, filters = {}) => {
       users = await Admin.findAll();
       break;
     case "tentor":
-      const mitraListTentor = await Mitra.findAll();
+      mapels = await Mapel.findAll();
       users = await Tentor.findAll();
       users = users.map((tentor) => {
-        const mitra = mitraListTentor.find((m) => m.id === tentor.mitraId);
         return {
           ...tentor.toJSON(),
-          mitra: {
-            id: mitra ? mitra.id : "-",
-            name: mitra ? mitra.name : "-",
-          },
+          mapel: mapels
+            .filter((mapel) => tentor.mapel.includes(mapel.id))
+            .map((m) => m.name),
           level: JSON.parse(tentor.level),
         };
       });
@@ -394,6 +416,7 @@ const getAllUsers = async (role, filters = {}) => {
 
 const getAllTentor = async (level, host) => {
   try {
+    
     return await Tentor.findAll({
       where: Sequelize.literal(`JSON_CONTAINS(level, '["${level}"]')`),
       attributes: {
@@ -423,14 +446,13 @@ const getUserById = async (userId, role) => {
       user = await Admin.findByPk(userId);
       break;
     case "tentor":
+      // Include mapel and level in the tentor object
+      mapels = await Mapel.findAll();
       user = await Tentor.findByPk(userId);
       if (user) {
-        const mitra = await Mitra.findByPk(user.mitraId);
         const userObj = user.toJSON();
-        userObj.mitra = {
-          id: mitra ? mitra.id : "-",
-          name: mitra ? mitra.name : "-",
-        };
+        userObj.mapel = mapels
+          .filter((mapel) => userObj.mapel.includes(mapel.id)).map((m) => m.name);
         userObj.level = userObj.level ? JSON.parse(userObj.level) : [];
         return userObj;
       }
@@ -449,7 +471,7 @@ const getUserById = async (userId, role) => {
         }));
         return userObj;
       }
-      
+
       break;
     case "siswa":
       user = await Siswa.findByPk(userId);
