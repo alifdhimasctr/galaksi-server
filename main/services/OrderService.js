@@ -392,6 +392,85 @@ async function getOrderById(orderId) {
   }
 }
 
+async function createOrderByAdmin(orderData) {
+  const t = await db.transaction();
+  try {
+    // Validasi payload sama seperti approveOrder
+    const paket = await validateOrderPayload(orderData);
+
+    // Validasi tentor
+    if (!orderData.tentorId) throw new Error("Tentor wajib dipilih");
+    const tentor = await Tentor.findByPk(orderData.tentorId, { transaction: t });
+    if (!tentor || tentor.status !== "active") {
+      throw new Error("Tentor tidak valid / non‑aktif");
+    }
+
+    // Validasi paket
+    if (!paket || paket.status !== "Aktif") {
+      throw new Error("Paket tidak ditemukan / non‑aktif");
+    }
+
+    // Buat order dengan status Approve
+    const order = await Order.create(
+      { ...orderData, status: "Approve" },
+      { transaction: t }
+    );
+
+    // Buat subscription
+    const sub = await Subscription.create(
+      {
+        siswaId: order.siswaId,
+        paketId: order.paketId,
+        tentorId: order.tentorId,
+        currentOrderId: order.id,
+        remainingSessions: paket.totalSession,
+      },
+      { transaction: t }
+    );
+
+    const siswa = await Siswa.findByPk(order.siswaId, { transaction: t });
+    if (!siswa) throw new Error("Siswa tidak ditemukan");
+
+    const isFirstPurchase = siswa.isFirstPurchase;
+    const adminFee = isFirstPurchase ? 95000 : 0;
+
+    // Buat invoice
+    const inv = await Invoice.create(
+      {
+        orderId: order.id,
+        siswaId: order.siswaId,
+        subscriptionId: sub.id,
+        paketId: paket.id,
+        price: paket.price + adminFee,
+        paymentStatus: "Unpaid",
+      },
+      { transaction: t }
+    );
+
+    // Generate jadwal
+    await generateJadwal(
+      {
+        order: {
+          ...order.get({ plain: true }),
+          tentorId: order.tentorId,
+          meetingDay: order.meetingDay,
+          time: order.time,
+        },
+        paket,
+        invoiceId: inv.id,
+        subscriptionId: sub.id,
+      },
+      { transaction: t }
+    );
+
+    await t.commit();
+    return { order, sub, inv };
+  } catch (err) {
+    await t.rollback();
+    throw new Error(`Gagal membuat order oleh admin: ${err.message}`);
+  }
+}
+
 module.exports = {
   createOrder,
   approveOrder,
@@ -401,4 +480,5 @@ module.exports = {
   rejectOrder,
   getAllOrder,
   getOrderBySiswaId,
+  createOrderByAdmin,
 };

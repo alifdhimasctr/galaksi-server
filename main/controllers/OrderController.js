@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const OrderService = require("../services/OrderService");
-const { authMiddleware } = require("../../middleware");
+const { authMiddleware, authMiddlewareRole } = require("../../middleware");
 
 router.post("/order/:siswaId", async (req, res) => {
   try {
@@ -11,6 +11,19 @@ router.post("/order/:siswaId", async (req, res) => {
     const newOrder = await OrderService.createOrder(orderData);
     res.status(201).json({
       message: "Order berhasil dibuat!",
+      order: newOrder,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post("/order-by-admin", authMiddlewareRole("admin"), async (req, res) => {
+  try {
+    const orderData = req.body;
+    const newOrder = await OrderService.createOrderByAdmin(orderData);
+    res.status(201).json({
+      message: "Order berhasil dibuat oleh admin!",
       order: newOrder,
     });
   } catch (error) {
