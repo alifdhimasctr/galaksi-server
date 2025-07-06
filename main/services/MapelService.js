@@ -23,7 +23,7 @@ const getAllMapel = async () => {
     try {
         const mapelList = await Mapel.findAll();
         if (mapelList.length === 0) {
-            throw new Error("Tidak ada mapel yang ditemukan");
+            return [];
         }
         return mapelList;
     } catch (error) {

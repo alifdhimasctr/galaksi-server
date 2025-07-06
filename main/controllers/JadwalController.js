@@ -5,14 +5,31 @@ const JadwalService = require('../services/JadwalService');
 const { authMiddleware } = require('../../middleware');  
 
 
-router.put('/jadwal/present/:id',
+router.put('/jadwal/request-present/:id',
   async (req, res) => {
     try {
       const { id } = req.params;
-      const updated = await JadwalService.presentJadwal(id);
+      const updated = await JadwalService.requestPresentJadwal(id);
 
       res.status(200).json({
-        message : 'Jadwal berhasil ditandai hadir!',
+        message : 'Jadwal berhasil direquest hadir!',
+        jadwal  : updated,
+        siswa   : updated.siswa, // Include siswa data in the response
+      });
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  }
+);
+
+router.put('/jadwal/confirm-present/:id',
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await JadwalService.confirmPresentJadwal(id);
+
+      res.status(200).json({
+        message : 'Jadwal berhasil dikonfirmasi hadir!',
         jadwal  : updated,
       });
     } catch (err) {

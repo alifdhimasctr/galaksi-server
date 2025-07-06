@@ -44,7 +44,118 @@ async function validateOrderPayload(payload) {
     const tentor = await Tentor.findByPk(payload.tentorId);
     if (!tentor || tentor.status !== "active")
       throw new Error("Tentor tidak valid / non‑aktif");
+
+    // Validasi mapel yang dipilih tidak sesuaii dengan yang dimiliki tentor
+    const tentorMapel = tentor.mapel || [];
+    const invalidMapel = payload.mapel.filter(
+      (mapelId) => !tentorMapel.includes(mapelId)
+    );
+
+    if (invalidMapel.length > 0) {
+      // Ambil nama mapel yang tidak valid
+      const invalidMapelNames = await Promise.all(
+        invalidMapel.map(async (mapelId) => {
+          const mapel = await Mapel.findByPk(mapelId);
+          return mapel ? mapel.name : mapelId;
+        })
+      );
+      throw new Error(
+        `Mapel ${invalidMapelNames.join(", ")} tidak tersedia untuk tentor ini`
+      );
+    }
+
+    //validasi meetingday dan time apakah sesuai dengan jadwal tentor
+    {/* 
+      Tentor punya jadwal yang sudah ditentukan
+      "schedule": [
+            {
+                "day": "Senin",
+                "slots": [
+                    {
+                        "time": "08:00-10:00",
+                        "booked": true
+                    },
+                    {
+                        "time": "13:00-15:00",
+                        "booked": false
+                    }
+                ]
+            },
+            {
+                "day": "Rabu",
+                "slots": [
+                    {
+                        "time": "09:00-11:00",
+                        "booked": false
+                    },
+                    {
+                        "time": "14:00-16:00",
+                        "booked": false
+                    }
+                ]
+            }
+        ],
+      
+      */}
+
+      // Validasi ketersediaan jadwal tentor
+      if (payload.meetingDay && payload.time) {
+        // meetingDay bisa array, time bisa array atau string
+        const meetingDays = Array.isArray(payload.meetingDay)
+        ? payload.meetingDay
+        : [payload.meetingDay];
+        const times = Array.isArray(payload.time)
+        ? payload.time
+        : [payload.time];
+
+        // Ambil jadwal tentor
+        let tentorSchedule = tentor.schedule || [];
+        if (typeof tentorSchedule === "string") {
+          try {
+            tentorSchedule = JSON.parse(tentorSchedule);
+          } catch (e) {
+            tentorSchedule = [];
+          }
+        }
+        // Untuk setiap kombinasi hari dan jam, cek apakah tersedia di jadwal tentor
+        for (let i = 0; i < meetingDays.length; i++) {
+        const day = meetingDays[i];
+        const time = times[i] || times[0]; // fallback ke times[0] jika hanya 1 time
+
+        // Cari jadwal tentor untuk hari tsb
+        const daySchedule = tentorSchedule.find(
+          (sch) => sch.day.toLowerCase() === day.toLowerCase()
+        );
+        if (!daySchedule) {
+          throw new Error(
+          `Tentor tidak memiliki jadwal di hari ${day}`
+          );
+        }
+        // Cek slot waktu tersedia & belum dibooking
+        // Mendukung validasi jika waktu request (misal "08:00") berada dalam range slot (misal "08:00-10:00")
+        const requestedStart = time.split("-")[0].trim();
+        const slot = daySchedule.slots.find((slot) => {
+          if (slot.booked) return false;
+          const [slotStart, slotEnd] = slot.time.split("-").map((t) => t.trim());
+          // Jika waktu request adalah range, cek apakah persis sama
+          if (time.includes("-")) {
+            return slot.time === time && slot.booked === false;
+          }
+          // Jika waktu request hanya jam mulai, cek apakah jam mulai ada dalam slot
+          return slotStart === requestedStart;
+        });
+        if (!slot) {
+          throw new Error(
+          `Slot waktu ${time} di hari ${day} tidak tersedia untuk tentor ini`
+          );
+        }
+        }
+      }
+
+      
   }
+
+
 
   // --- meetingDay & mapel minimal satu nilai --------------------------------
   if (!Array.isArray(payload.meetingDay) || payload.meetingDay.length === 0) {
@@ -64,11 +175,111 @@ async function validateOrderPayload(payload) {
 async function createOrder(orderData) {
   const t = await db.transaction();
   try {
-    const paket = await validateOrderPayload(orderData); // NEW
-    const order = await Order.create(orderData, { transaction: t });
+    // Validasi payload
+    const paket = await validateOrderPayload(orderData);
+
+    // Validasi tentor
+    if (!orderData.tentorId) throw new Error("Tentor wajib dipilih");
+    const tentor = await Tentor.findByPk(orderData.tentorId, { transaction: t });
+    if (!tentor || tentor.status !== "active") {
+      throw new Error("Tentor tidak valid / non‑aktif");
+    }
+
+    // Validasi paket
+    if (!paket || paket.status !== "Aktif") {
+      throw new Error("Paket tidak ditemukan / non‑aktif");
+    }
+
+    // Buat order dengan status Approve
+    const order = await Order.create(
+      { ...orderData, status: "Approve" },
+      { transaction: t }
+    );
+
+    // Update tentor's schedule: mark the booked slot as true
+    let tentorSchedule = tentor.schedule || [];
+    if (typeof tentorSchedule === "string") {
+      try {
+        tentorSchedule = JSON.parse(tentorSchedule);
+      } catch (e) {
+        tentorSchedule = [];
+      }
+    }
+    const meetingDays = Array.isArray(order.meetingDay)
+      ? order.meetingDay
+      : [order.meetingDay];
+    const times = Array.isArray(order.time)
+      ? order.time
+      : [order.time];
+    for (let i = 0; i < meetingDays.length; i++) {
+      const day = meetingDays[i];
+      const time = times[i] || times[0];
+      const daySchedule = tentorSchedule.find(
+        (sch) => sch.day.toLowerCase() === day.toLowerCase()
+      );
+      if (daySchedule) {
+        const requestedStart = time.trim();
+        const slot = daySchedule.slots.find((slot) => {
+          const [slotStart] = slot.time.split("-").map((t) => t.trim());
+          return slotStart === requestedStart;
+        });
+        if (slot) {
+          slot.booked = true;
+        }
+      }
+    }
+    tentor.schedule = tentorSchedule;
+    await tentor.save({ transaction: t });
+
+    // Buat subscription
+    const sub = await Subscription.create(
+      {
+        siswaId: order.siswaId,
+        paketId: order.paketId,
+        tentorId: order.tentorId,
+        currentOrderId: order.id,
+        remainingSessions: paket.totalSession,
+      },
+      { transaction: t }
+    );
+
+    const siswa = await Siswa.findByPk(order.siswaId, { transaction: t });
+    if (!siswa) throw new Error("Siswa tidak ditemukan");
+
+    const isFirstPurchase = siswa.isFirstPurchase;
+    const adminFee = isFirstPurchase ? 95000 : 0;
+
+    // Buat invoice
+    const inv = await Invoice.create(
+      {
+        orderId: order.id,
+        siswaId: order.siswaId,
+        subscriptionId: sub.id,
+        paketId: paket.id,
+        price: paket.price + adminFee,
+        paymentStatus: "Unpaid",
+      },
+      { transaction: t }
+    );
+
+    // Generate jadwal
+    await generateJadwal(
+      {
+        order: {
+          ...order.get({ plain: true }),
+          tentorId: order.tentorId,
+          meetingDay: order.meetingDay,
+          time: order.time,
+        },
+        paket,
+        invoiceId: inv.id,
+        subscriptionId: sub.id,
+      },
+      { transaction: t }
+    );
 
     await t.commit();
-    return order;
+    return { order, sub, inv };
   } catch (err) {
     await t.rollback();
     throw new Error(`Gagal membuat order: ${err.message}`);
@@ -165,19 +376,31 @@ async function approveOrder(orderId, adminEdits = {}) {
 
     // Apply admin edits if provided
     if (adminEdits.tentorId) {
-      order.tentorId = adminEdits.tentorId;
+      order.tentorId = adminEdits.tentorId
+    } else {
+      // Jika admin tidak mengedit tentor, ambil dari order yang sudah ada
+      order.tentorId = order.tentorId || null;
     }
     
     if (adminEdits.meetingDay) {
-      order.meetingDay = adminEdits.meetingDay;
+      order.meetingDay = adminEdits.meetingDay; 
+    } else {
+      // Jika admin tidak mengedit meetingDay, ambil dari order yang sudah ada
+      order.meetingDay = order.meetingDay || [];
     }
     
     if (adminEdits.time) {
       order.time = adminEdits.time;
+    } else {
+      // Jika admin tidak mengedit time, ambil dari order yang sudah ada
+      order.time = order.time || [];
     }
     
     if (adminEdits.mapel) {
       order.mapel = adminEdits.mapel;
+    } else {
+      // Jika admin tidak mengedit mapel, ambil dari order yang sudah ada
+      order.mapel = order.mapel || [];
     }
 
     // Verify the selected tentor
@@ -185,6 +408,50 @@ async function approveOrder(orderId, adminEdits = {}) {
     if (!tentor || tentor.status !== "active") {
       throw new Error("Tentor tidak valid / non‑aktif");
     }
+
+    // Update tentor's schedule: mark the booked slot as true
+    let tentorSchedule = tentor.schedule || [];
+    if (typeof tentorSchedule === "string") {
+      try {
+        tentorSchedule = JSON.parse(tentorSchedule);
+      } catch (e) {
+        tentorSchedule = [];
+      }
+    }
+    
+    // meetingDay & time bisa array atau string
+    const meetingDays = Array.isArray(order.meetingDay)
+      ? order.meetingDay
+      : [order.meetingDay];
+    const times = Array.isArray(order.time)
+      ? order.time
+      : [order.time];
+    
+    for (let i = 0; i < meetingDays.length; i++) {
+      const day = meetingDays[i];
+      const time = times[i] || times[0]; // fallback ke times[0] jika hanya 1 time
+    
+      const daySchedule = tentorSchedule.find(
+        (sch) => sch.day.toLowerCase() === day.toLowerCase()
+      );
+      if (daySchedule) {
+        // Cari slot yang cocok berdasarkan jam awal saja
+        const requestedStart = time.trim();
+        const slot = daySchedule.slots.find((slot) => {
+          const [slotStart] = slot.time.split("-").map((t) => t.trim());
+          return slotStart === requestedStart;
+        });
+        if (slot) {
+          slot.booked = true;
+        }
+      }
+    }
+    
+    // Simpan perubahan schedule tentor
+    tentor.schedule = tentorSchedule;
+    await tentor.save({ transaction: t });
+
+      
 
     // Verify the package
     const paket = await Paket.findByPk(order.paketId, { transaction: t });
@@ -415,6 +682,41 @@ async function createOrderByAdmin(orderData) {
       { ...orderData, status: "Approve" },
       { transaction: t }
     );
+
+    // Update tentor's schedule: mark the booked slot as true (sama seperti createOrder)
+    let tentorSchedule = tentor.schedule || [];
+    if (typeof tentorSchedule === "string") {
+      try {
+        tentorSchedule = JSON.parse(tentorSchedule);
+      } catch (e) {
+        tentorSchedule = [];
+      }
+    }
+    const meetingDays = Array.isArray(order.meetingDay)
+      ? order.meetingDay
+      : [order.meetingDay];
+    const times = Array.isArray(order.time)
+      ? order.time
+      : [order.time];
+    for (let i = 0; i < meetingDays.length; i++) {
+      const day = meetingDays[i];
+      const time = times[i] || times[0];
+      const daySchedule = tentorSchedule.find(
+        (sch) => sch.day.toLowerCase() === day.toLowerCase()
+      );
+      if (daySchedule) {
+        const requestedStart = time.trim();
+        const slot = daySchedule.slots.find((slot) => {
+          const [slotStart] = slot.time.split("-").map((t) => t.trim());
+          return slotStart === requestedStart;
+        });
+        if (slot) {
+          slot.booked = true;
+        }
+      }
+    }
+    tentor.schedule = tentorSchedule;
+    await tentor.save({ transaction: t });
 
     // Buat subscription
     const sub = await Subscription.create(

@@ -40,7 +40,7 @@ const Jadwal = db.define('Jadwal', {
     allowNull: false,
   },
   attendanceStatus: {
-    type: DataTypes.ENUM('Present', 'Absent', 'RescheduleRequest'),
+    type: DataTypes.ENUM('Present','PresentRequest', 'Absent', 'RescheduleRequest'),
     allowNull: false,
     defaultValue: 'Absent',
   },

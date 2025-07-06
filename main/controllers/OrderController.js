@@ -34,7 +34,7 @@ router.post("/order-by-admin", authMiddlewareRole("admin"), async (req, res) => 
 router.put("/order/approve/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { tentorId, meetingDay, time, mapel } = req.body;
+    const { tentorId, meetingDay, time, mapel } = req.body || {};
 
     const adminEdits = {};
 

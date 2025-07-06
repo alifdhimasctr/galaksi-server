@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { Siswa, Tentor, Mitra, Admin, Mapel } = require("../models");
 const { Op, Sequelize } = require("sequelize");
 const db = require("../../database/db");
+const { sendAccountCreationEmail } = require("./mailService");
 //test
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -45,6 +46,7 @@ const createTentor = async (tentorData) => {
     faculty,
     university,
     level,
+    schedule,
     foto,
     ktp,
     sim,
@@ -105,17 +107,55 @@ const createTentor = async (tentorData) => {
     }
   }
 
+  let scheduleArray = [];
+  if (Array.isArray(schedule)) {
+    scheduleArray = schedule.map(daySchedule => ({
+      day: daySchedule.day,
+      slots: daySchedule.slots.map(slot => ({
+        time: slot,
+        booked: false
+      }))
+    }));
+  } else if (schedule) {
+    try {
+      const parsedSchedule = JSON.parse(schedule);
+      scheduleArray = parsedSchedule.map(daySchedule => ({
+        day: daySchedule.day,
+        slots: daySchedule.slots.map(slot => ({
+          time: slot,
+          booked: false
+        }))
+      }));
+    } catch (error) {
+      throw new Error("Invalid format for schedule");
+    }
+  }
+
   const newTentor = await Tentor.create({
     ...tentorData,
     username,
     password: hashedPassword,
     level: levelArray,
     mapel: mapelArray,
+    schedule: scheduleArray,
     foto,
     ktp,
     cv,
     sim,
   });
+
+    try {
+    await sendAccountCreationEmail(
+      tentorData.email, 
+      username, 
+      process.env.DEFAULT_PASSWORD,
+      "tentor",
+      tentorData.name
+    );
+  } catch (emailError) {
+    console.error("Email notification failed:", emailError);
+    // Tidak perlu throw error karena akun sudah berhasil dibuat
+  }
 
   return newTentor;
 };
@@ -123,20 +163,10 @@ const createTentor = async (tentorData) => {
 const updateTentor = async (tentorId, tentorData) => {
   const {
     name,
-    noHp,
-    gender,
-    address,
-    city,
-    faculty,
-    university,
     level,
-    foto,
-    ktp,
-    cv,
-    sim,
-    bankName,
-    bankNumber,
+    schedule,
     mapel,
+    password
   } = tentorData;
 
   const existingTentor = await Tentor.findByPk(tentorId);
@@ -146,8 +176,8 @@ const updateTentor = async (tentorId, tentorData) => {
 
   const updatedData = { ...tentorData };
 
-  if (tentorData.password) {
-    const hashedPassword = await bcrypt.hash(tentorData.password, 10);
+  if (password) {
+    const hashedPassword = await bcrypt.hash(password, 10);
     updatedData.password = hashedPassword;
   }
 
@@ -179,6 +209,35 @@ const updateTentor = async (tentorId, tentorData) => {
   }
   updatedData.mapel = mapelArray;
 
+  let scheduleArray = [];
+if (Array.isArray(schedule)) {
+  scheduleArray = schedule.map(daySchedule => ({
+    day: daySchedule.day,
+    slots: Array.isArray(daySchedule.slots)
+      ? daySchedule.slots.map(slot => ({
+          time: slot,
+          booked: false // Reset status booking
+        }))
+      : []
+  }));
+} else if (schedule) {
+    try {
+      const parsedSchedule = JSON.parse(schedule);
+      scheduleArray = parsedSchedule.map(daySchedule => ({
+        day: daySchedule.day,
+        slots: Array.isArray(daySchedule.slots)
+          ? daySchedule.slots.map(slot => ({
+              time: slot,
+              booked: false
+            }))
+          : []
+      }));
+    } catch (error) {
+      throw new Error("Invalid format for schedule");
+    }
+  }
+  updatedData.schedule = scheduleArray;
+
   const updatedTentor = await existingTentor.update(updatedData);
   return updatedTentor;
 };
@@ -193,6 +252,7 @@ const createMitra = async (mitraData) => {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const username = name ? name.toLowerCase().replace(/\s+/g, "") : null;
+  
 
   let existingUser = await checkUsernameUniqueness(username);
   if (existingUser) {
@@ -206,6 +266,18 @@ const createMitra = async (mitraData) => {
     username,
     password: hashedPassword,
   });
+
+  try {
+    await sendAccountCreationEmail(
+      mitraData.email, 
+      username, 
+      process.env.DEFAULT_PASSWORD,
+      "mitra",
+      mitraData.name
+    );
+  } catch (emailError) {
+    console.error("Email notification failed:", emailError);
+  }
 
   return newMitra;
 };
@@ -260,6 +332,18 @@ const createSiswa = async (siswaData) => {
     password: hashedPassword,
     role: "siswa",
   });
+
+  try {
+    await sendAccountCreationEmail(
+      siswaData.email, 
+      username, 
+      process.env.DEFAULT_PASSWORD,
+      "siswa",
+      siswaData.name
+    );
+  } catch (emailError) {
+    console.error("Email notification failed:", emailError);
+  }
 
   return newSiswa;
 };
@@ -363,6 +447,7 @@ const getAllUsers = async (role, filters = {}) => {
             .filter((mapel) => tentor.mapel.includes(mapel.id))
             .map((m) => m.name),
           level: JSON.parse(tentor.level),
+          schedule: JSON.parse(tentor.schedule)
         };
       });
       break;
@@ -416,8 +501,7 @@ const getAllUsers = async (role, filters = {}) => {
 
 const getAllTentor = async (level, host) => {
   try {
-    
-    return await Tentor.findAll({
+    const tentors = await Tentor.findAll({
       where: Sequelize.literal(`JSON_CONTAINS(level, '["${level}"]')`),
       attributes: {
         exclude: ["password"],
@@ -427,12 +511,29 @@ const getAllTentor = async (level, host) => {
             "fotoUrl",
           ],
           [
-            Sequelize.literal(`CONCAT('${host}/uploads/tentor/', sim)`),
-            "simUrl",
+            Sequelize.literal(`CONCAT('${host}/uploads/tentor/', cv)`),
+            "cvUrl",
           ],
         ],
       },
       raw: true,
+    });
+
+    const mapels = await Mapel.findAll();
+
+    // Parse JSON fields
+    return tentors.map(tentor => {
+      const mapelIds = tentor.mapel ? JSON.parse(tentor.mapel) : [];
+      const mapelNames = mapels
+        .filter(mapel => mapelIds.includes(mapel.id))
+        .map(m => ({ id: m.id, name: m.name }));
+
+      return {
+      ...tentor,
+      level: tentor.level ? JSON.parse(tentor.level) : [],
+      mapel: mapelNames,
+      schedule: tentor.schedule ? JSON.parse(tentor.schedule) : [],
+      };
     });
   } catch (error) {
     throw error;
@@ -452,8 +553,10 @@ const getUserById = async (userId, role) => {
       if (user) {
         const userObj = user.toJSON();
         userObj.mapel = mapels
-          .filter((mapel) => userObj.mapel.includes(mapel.id)).map((m) => m.name);
+          .filter((mapel) => userObj.mapel.includes(mapel.id))
+          .map((m) => m.name);
         userObj.level = userObj.level ? JSON.parse(userObj.level) : [];
+        userObj.schedule = userObj.schedule ? JSON.parse(userObj.schedule) : [];
         return userObj;
       }
       break;

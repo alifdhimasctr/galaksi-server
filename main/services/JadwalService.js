@@ -81,7 +81,56 @@ const generateJadwal = async (
 /* -------------------------------------------------------------------------- */
 /*                               PRESENT JADWAL                               */
 /* -------------------------------------------------------------------------- */
-async function presentJadwal(jadwalId) {
+
+async function requestPresentJadwal(jadwalId) {
+  const t = await db.transaction();
+  try {
+    const jadwal = await Jadwal.findByPk(jadwalId, {
+      lock: true,
+      transaction: t,
+    });
+
+    const siswa = await Siswa.findByPk(jadwal.siswaId, {
+      lock: true,
+      transaction: t,
+    });
+    if (!siswa) throw new Error("Siswa tidak ditemukan");
+
+    
+    if (!jadwal) throw new Error("Jadwal tidak ditemukan");
+    if (jadwal.attendanceStatus !== "Absent")
+      throw new Error("Jadwal sudah dalam proses absen");
+
+    const now = new Date();
+    const jadTime = new Date(`${jadwal.date}T${jadwal.time}`);
+    if (jadTime > now)
+      throw new Error("Tidak bisa request absen sebelum jadwal dimulai");
+
+    // Ubah status menjadi PresentRequest
+    jadwal.attendanceStatus = "PresentRequest";
+    await jadwal.save({ transaction: t });
+
+    await t.commit();
+    
+    // Kembalikan data siswa untuk frontend
+    return {
+      success: true,
+      message: "Permintaan presensi berhasil",
+      siswa: {
+        id: siswa.id,
+        name: siswa.name,
+        noHp: siswa.noHp,
+        level: siswa.level,
+        
+      }
+    };
+  } catch (err) {
+    await t.rollback();
+    throw new Error(`${err.message}`);
+  }
+}
+
+async function confirmPresentJadwal(jadwalId) {
   const t = await db.transaction();
   const { fn, col } = db.Sequelize;
 
@@ -92,8 +141,8 @@ async function presentJadwal(jadwalId) {
       transaction: t,
     });
     if (!jadwal) throw new Error("Jadwal tidak ditemukan");
-    if (jadwal.attendanceStatus === "Present")
-      throw new Error("Jadwal Sudah Diabsenkan");
+    if (jadwal.attendanceStatus !== "PresentRequest")
+      throw new Error("Jadwal Tidak Valid untuk diabsenkan");
 
     const now = new Date();
     const jadTime = new Date(`${jadwal.date}T${jadwal.time}`);
@@ -253,6 +302,180 @@ async function presentJadwal(jadwalId) {
     throw new Error(`${err.message}`);
   }
 }
+
+
+// async function presentJadwal(jadwalId) {
+//   const t = await db.transaction();
+//   const { fn, col } = db.Sequelize;
+
+//   try {
+//     /* ---------- Ambil entitas utama & kunci row -------------------------- */
+//     const jadwal = await Jadwal.findByPk(jadwalId, {
+//       lock: true,
+//       transaction: t,
+//     });
+//     if (!jadwal) throw new Error("Jadwal tidak ditemukan");
+//     if (jadwal.attendanceStatus === "Present")
+//       throw new Error("Jadwal Sudah Diabsenkan");
+
+//     const now = new Date();
+//     const jadTime = new Date(`${jadwal.date}T${jadwal.time}`);
+//     if (jadTime > now)
+//       throw new Error("Tidak bisa absen sebelum jadwal dimulai");
+
+//     const subscription = await Subscription.findByPk(jadwal.subscriptionId, {
+//       lock: true,
+//       transaction: t,
+//     });
+//     if (!subscription) throw new Error("Subscription tidak ditemukan");
+//     if (subscription.status !== "Active")
+//       throw new Error("Subscription not active");
+
+//     const invoice = await Invoice.findByPk(jadwal.invoiceId, {
+//       lock: true,
+//       transaction: t,
+//     });
+//     if (!invoice) throw new Error("Invoice tidak ditemukan");
+
+//     const paket = await Paket.findByPk(subscription.paketId, {
+//       transaction: t,
+//     });
+//     if (!paket) throw new Error("Paket tidak ditemukan");
+
+//     const tentor = await Tentor.findByPk(jadwal.tentorId, {
+//       lock: true,
+//       transaction: t,
+//     });
+//     if (!tentor) throw new Error("Tentor tidak ditemukan");
+
+//     const siswa = await Siswa.findByPk(jadwal.siswaId, {
+//       lock: true,
+//       transaction: t,
+//     });
+//     if (!siswa) throw new Error("Siswa tidak ditemukan");
+
+//     const mitra =
+//       siswa.mitraId && siswa.mitraId !== ""
+//         ? await Mitra.findByPk(siswa.mitraId, { lock: true, transaction: t })
+//         : null;
+
+//     jadwal.attendanceStatus = "Present";
+//     await jadwal.save({ transaction: t });
+
+//     // Berikan honor langsung ke tentor per sesi
+//     tentor.wallet += paket.honorPrice;
+//     await tentor.save({ transaction: t });
+
+//     // Kurangi sisa sesi subscription
+//     subscription.remainingSessions -= 1;
+
+//     if (
+//       subscription.remainingSessions === 0 &&
+//       subscription.status !== "NonActive"
+//     ) {
+//       // Dapatkan order dari subscription (currentOrderId)
+//       const order = await Order.findByPk(subscription.currentOrderId, {
+//         transaction: t,
+//       });
+//       if (!order) throw new Error("Order tidak ditemukan");
+
+//       // Dapatkan paket baru dari order
+//       const newPaket = await Paket.findByPk(order.paketId, { transaction: t });
+//       if (!newPaket) throw new Error("Paket tidak ditemukan");
+
+//       // Reset subscription dengan data baru
+//       subscription.remainingSessions = newPaket.totalSession;
+//       subscription.tentorId = order.tentorId;
+//       subscription.paketId = order.paketId;
+//       await subscription.save({ transaction: t });
+
+//       // PROSES HONOR UNTUK SEMUA TENTOR YANG PERNAH MENGAJAR
+//       const honorMap = new Map();
+
+//       // Cari semua jadwal dalam invoice yang sama
+//       const jadwalsInInvoice = await Jadwal.findAll({
+//         where: {
+//           invoiceId: jadwal.invoiceId, // Fokus ke invoice saat ini
+//           attendanceStatus: "Present",
+//         },
+//         attributes: ["id", "tentorId"],
+//         transaction: t,
+//       });
+
+//       // Hitung jumlah sesi per tentor dalam invoice ini
+//       for (const j of jadwalsInInvoice) {
+//         const count = honorMap.get(j.tentorId) || 0;
+//         honorMap.set(j.tentorId, count + 1);
+//       }
+
+//       // Buat record honor untuk setiap tentor
+//       for (const [tentorId, sessions] of honorMap) {
+//         const totalHonor = sessions * paket.honorPrice;
+
+//         await Honor.create(
+//           {
+//             tentorId: tentorId,
+//             siswaId: siswa.id,
+//             invoiceId: invoice.id,
+//             total: totalHonor,
+//             status: "Pending",
+//           },
+//           { transaction: t }
+//         );
+//       }
+
+//       // PROSES PROSHARE UNTUK MITRA
+//       if (mitra) {
+//         const proshareTotal = paket.prosharePrice * paket.totalSession;
+//         mitra.wallet += proshareTotal;
+//         await mitra.save({ transaction: t });
+
+//         await Proshare.create(
+//           {
+//             mitraId: mitra.id,
+//             siswaId: siswa.id,
+//             invoiceId: invoice.id,
+//             total: proshareTotal,
+//             status: "Pending",
+//           },
+//           { transaction: t }
+//         );
+//       }
+
+//       // Buat invoice baru
+//       const newInvoice = await Invoice.create(
+//         {
+//           orderId: order.id,
+//           siswaId: order.siswaId,
+//           subscriptionId: subscription.id,
+//           paketId: newPaket.id,
+//           price: newPaket.price,
+//           paymentStatus: "Unpaid",
+//         },
+//         { transaction: t }
+//       );
+
+//       // Generate jadwal baru
+//       await generateJadwal(
+//         {
+//           order: order,
+//           paket: newPaket,
+//           invoiceId: newInvoice.id,
+//           subscriptionId: subscription.id,
+//         },
+//         { transaction: t }
+//       );
+//     } else {
+//       await subscription.save({ transaction: t });
+//     }
+
+//     await t.commit();
+//     return jadwal;
+//   } catch (err) {
+//     await t.rollback();
+//     throw new Error(`${err.message}`);
+//   }
+// }
 
 async function rescheduleJadwal(jadwalId, newDate, newTime) {
   const jadwal = await Jadwal.findByPk(jadwalId);
@@ -416,7 +639,9 @@ const getJadwalById = async (id) => {
 
 module.exports = {
   generateJadwal,
-  presentJadwal,
+  // presentJadwal,
+  requestPresentJadwal,
+  confirmPresentJadwal,
   rescheduleJadwal,
   rescheduleTentor,
   approveRescheduleTentor,

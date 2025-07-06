@@ -77,5 +77,50 @@ app.use("/", TransacttionController);
 // Serve static files from the "uploads" directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// test Ubah aja sih wkwkwk
-// satu test lagi
+// Order.sync({ force: true })
+//   .then(() => {
+//     console.log("Order table created!");
+//   })
+//   .catch((error) => {
+//     console.error("Error creating Order table:", error);
+//   });
+
+// Invoice.sync({ force: true })
+//   .then(() => {
+//     console.log("Invoice table created!");
+//   })
+//   .catch((error) => {
+//     console.error("Error creating Invoice table:", error);
+//   });
+
+// Jadwal.sync({ force: true })
+//   .then(() => {
+//     console.log("Jadwal table created!");
+//   })
+//   .catch((error) => {
+//     console.error("Error creating Jadwal table:", error);
+//   });
+
+// Subscription.sync({ force: true })
+//   .then(() => {
+//     console.log("Subscription table created!");
+//   })
+//   .catch((error) => {
+//     console.error("Error creating Subscription table:", error);
+//   });
+
+// Honor.sync({ force: true })
+//   .then(() => {
+//     console.log("Honor table created!");
+//   })
+//   .catch((error) => {
+//     console.error("Error creating Honor table:", error);
+//   });
+
+// Proshare.sync({ force: true })
+//   .then(() => {
+//     console.log("Proshare table created!");
+//   })
+//   .catch((error) => {
+//     console.error("Error creating Proshare table:", error);
+//   });
