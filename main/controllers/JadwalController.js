@@ -38,26 +38,26 @@ router.put('/jadwal/confirm-present/:id',
   }
 );
 
-router.put('/jadwal/reschedule/date/:id',
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { newDate, newTime } = req.body;   
+// router.put('/jadwal/reschedule/date/:id',
+//   async (req, res) => {
+//     try {
+//       const { id } = req.params;
+//       const { newDate, newTime } = req.body;   
 
-      if (!newDate || !newTime)
-        return res.status(400).json({ message: 'newDate dan newTime wajib diisi' });
+//       if (!newDate || !newTime)
+//         return res.status(400).json({ message: 'newDate dan newTime wajib diisi' });
 
-      const updated = await JadwalService.rescheduleJadwal(id, newDate, newTime);
+//       const updated = await JadwalService.rescheduleJadwal(id, newDate, newTime);
 
-      res.status(200).json({
-        message : 'Jadwal berhasil dijadwalkan ulang (hari / jam).',
-        jadwal  : updated,
-      });
-    } catch (err) {
-      res.status(400).json({ message: err.message });
-    }
-  }
-);
+//       res.status(200).json({
+//         message : 'Jadwal berhasil dijadwalkan ulang (hari / jam).',
+//         jadwal  : updated,
+//       });
+//     } catch (err) {
+//       res.status(400).json({ message: err.message });
+//     }
+//   }
+// );
 
 router.put('/jadwal/reschedule/tentor/:id',
   async (req, res) => {

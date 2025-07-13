@@ -4,7 +4,7 @@ const { Siswa, Tentor, Mitra, Admin, Mapel } = require("../models");
 const { Op, Sequelize } = require("sequelize");
 const db = require("../../database/db");
 const { sendAccountCreationEmail } = require("./mailService");
-//test
+
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -46,7 +46,6 @@ const createTentor = async (tentorData) => {
     faculty,
     university,
     level,
-    schedule,
     foto,
     ktp,
     sim,
@@ -107,29 +106,7 @@ const createTentor = async (tentorData) => {
     }
   }
 
-  let scheduleArray = [];
-  if (Array.isArray(schedule)) {
-    scheduleArray = schedule.map(daySchedule => ({
-      day: daySchedule.day,
-      slots: daySchedule.slots.map(slot => ({
-        time: slot,
-        booked: false
-      }))
-    }));
-  } else if (schedule) {
-    try {
-      const parsedSchedule = JSON.parse(schedule);
-      scheduleArray = parsedSchedule.map(daySchedule => ({
-        day: daySchedule.day,
-        slots: daySchedule.slots.map(slot => ({
-          time: slot,
-          booked: false
-        }))
-      }));
-    } catch (error) {
-      throw new Error("Invalid format for schedule");
-    }
-  }
+  
 
   const newTentor = await Tentor.create({
     ...tentorData,
@@ -137,7 +114,6 @@ const createTentor = async (tentorData) => {
     password: hashedPassword,
     level: levelArray,
     mapel: mapelArray,
-    schedule: scheduleArray,
     foto,
     ktp,
     cv,
@@ -164,7 +140,6 @@ const updateTentor = async (tentorId, tentorData) => {
   const {
     name,
     level,
-    schedule,
     mapel,
     password
   } = tentorData;
@@ -209,34 +184,7 @@ const updateTentor = async (tentorId, tentorData) => {
   }
   updatedData.mapel = mapelArray;
 
-  let scheduleArray = [];
-if (Array.isArray(schedule)) {
-  scheduleArray = schedule.map(daySchedule => ({
-    day: daySchedule.day,
-    slots: Array.isArray(daySchedule.slots)
-      ? daySchedule.slots.map(slot => ({
-          time: slot,
-          booked: false // Reset status booking
-        }))
-      : []
-  }));
-} else if (schedule) {
-    try {
-      const parsedSchedule = JSON.parse(schedule);
-      scheduleArray = parsedSchedule.map(daySchedule => ({
-        day: daySchedule.day,
-        slots: Array.isArray(daySchedule.slots)
-          ? daySchedule.slots.map(slot => ({
-              time: slot,
-              booked: false
-            }))
-          : []
-      }));
-    } catch (error) {
-      throw new Error("Invalid format for schedule");
-    }
-  }
-  updatedData.schedule = scheduleArray;
+  
 
   const updatedTentor = await existingTentor.update(updatedData);
   return updatedTentor;
@@ -447,7 +395,6 @@ const getAllUsers = async (role, filters = {}) => {
             .filter((mapel) => tentor.mapel.includes(mapel.id))
             .map((m) => m.name),
           level: JSON.parse(tentor.level),
-          schedule: JSON.parse(tentor.schedule)
         };
       });
       break;
@@ -532,7 +479,6 @@ const getAllTentor = async (level, host) => {
       ...tentor,
       level: tentor.level ? JSON.parse(tentor.level) : [],
       mapel: mapelNames,
-      schedule: tentor.schedule ? JSON.parse(tentor.schedule) : [],
       };
     });
   } catch (error) {
@@ -556,7 +502,6 @@ const getUserById = async (userId, role) => {
           .filter((mapel) => userObj.mapel.includes(mapel.id))
           .map((m) => m.name);
         userObj.level = userObj.level ? JSON.parse(userObj.level) : [];
-        userObj.schedule = userObj.schedule ? JSON.parse(userObj.schedule) : [];
         return userObj;
       }
       break;

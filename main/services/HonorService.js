@@ -55,7 +55,7 @@ const getAllHonor = async (fliters = {}) => {
 
         return {
           ...honor.toJSON(),
-          siswa: siswa ? { id: siswa.id, name: siswa.name } : null,
+          siswa: siswa ? { id: siswa.id, name: siswa.name, level : siswa.level } : null,
           tentor: tentor
             ? {
                 id: tentor.id,

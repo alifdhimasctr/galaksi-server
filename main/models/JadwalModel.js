@@ -52,6 +52,10 @@ const Jadwal = db.define('Jadwal', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
   },
+  presentAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 });
 
 // Jadwal.sync({ force: true}).then(() => {

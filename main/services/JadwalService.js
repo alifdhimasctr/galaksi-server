@@ -101,10 +101,7 @@ async function requestPresentJadwal(jadwalId) {
     if (jadwal.attendanceStatus !== "Absent")
       throw new Error("Jadwal sudah dalam proses absen");
 
-    const now = new Date();
-    const jadTime = new Date(`${jadwal.date}T${jadwal.time}`);
-    if (jadTime > now)
-      throw new Error("Tidak bisa request absen sebelum jadwal dimulai");
+    
 
     // Ubah status menjadi PresentRequest
     jadwal.attendanceStatus = "PresentRequest";
@@ -144,11 +141,7 @@ async function confirmPresentJadwal(jadwalId) {
     if (jadwal.attendanceStatus !== "PresentRequest")
       throw new Error("Jadwal Tidak Valid untuk diabsenkan");
 
-    const now = new Date();
-    const jadTime = new Date(`${jadwal.date}T${jadwal.time}`);
-    if (jadTime > now)
-      throw new Error("Tidak bisa absen sebelum jadwal dimulai");
-
+    
     const subscription = await Subscription.findByPk(jadwal.subscriptionId, {
       lock: true,
       transaction: t,
@@ -186,6 +179,7 @@ async function confirmPresentJadwal(jadwalId) {
         : null;
 
     jadwal.attendanceStatus = "Present";
+    jadwal.presentAt = new Date();
     await jadwal.save({ transaction: t });
 
     // Berikan honor langsung ke tentor per sesi
@@ -477,23 +471,23 @@ async function confirmPresentJadwal(jadwalId) {
 //   }
 // }
 
-async function rescheduleJadwal(jadwalId, newDate, newTime) {
-  const jadwal = await Jadwal.findByPk(jadwalId);
-  if (!jadwal) throw new Error("Jadwal Tidak Ditemukan");
+// async function rescheduleJadwal(jadwalId, newDate, newTime) {
+//   const jadwal = await Jadwal.findByPk(jadwalId);
+//   if (!jadwal) throw new Error("Jadwal Tidak Ditemukan");
 
-  const now = new Date();
-  const jadTime = new Date(`${jadwal.date}T${jadwal.time}`);
-  if (jadTime < now) throw new Error("Cannot reschedule a past jadwal");
-  const dayName = WEEKDAY_STR[new Date(newDate).getDay()]; // simpan nama hari baru
+//   const now = new Date();
+//   const jadTime = new Date(`${jadwal.date}T${jadwal.time}`);
+//   if (jadTime < now) throw new Error("Cannot reschedule a past jadwal");
+//   const dayName = WEEKDAY_STR[new Date(newDate).getDay()]; // simpan nama hari baru
 
-  jadwal.date = newDate;
-  jadwal.time = newTime;
-  jadwal.dayName = dayName; // update nama hari
+//   jadwal.date = newDate;
+//   jadwal.time = newTime;
+//   jadwal.dayName = dayName; // update nama hari
 
-  await jadwal.save();
+//   await jadwal.save();
 
-  return jadwal;
-}
+//   return jadwal;
+// }
 
 async function rescheduleTentor(jadwalId) {
   const jadwal = await Jadwal.findByPk(jadwalId);
@@ -642,7 +636,7 @@ module.exports = {
   // presentJadwal,
   requestPresentJadwal,
   confirmPresentJadwal,
-  rescheduleJadwal,
+  // rescheduleJadwal,
   rescheduleTentor,
   approveRescheduleTentor,
   rejectRescheduleTentor,

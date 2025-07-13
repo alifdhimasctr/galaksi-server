@@ -38,9 +38,22 @@ const getSubscriptionById = async (id) => {
     }
 }
 
+const nonactiveSubscription = async (id) => {
+    try {
+        const subscription = await Subscription.findByPk(id);
+        if (!subscription) throw new Error("Subscription tidak ditemukan");
+
+        subscription.status = "nonActive";
+        await subscription.save();
+        return subscription;
+    } catch (error) {
+        throw new Error(`Error saat menonaktifkan subscription: ${error.message}`);
+    }
+}
 
 module.exports = {
     createSubscription,
     getAllSubscriptions,
     getSubscriptionById,
+    nonactiveSubscription,
 };

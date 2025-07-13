@@ -61,11 +61,6 @@ const Tentor = db.define(
       type: DataTypes.JSON,
       allowNull: false,
     },
-    schedule: {
-      type: DataTypes.JSON,
-      allowNull: true,
-      defaultValue: [],
-    },
     dateJoin: {
       type: DataTypes.DATE,
       allowNull: false,
