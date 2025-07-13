@@ -1,14 +1,9 @@
 const express = require("express");
-const cors = require("cors");
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
 
 const db = require("./database/db");
-const corsConfig = {
-  origin: "*", // Allow all origins
-  credential: true, // Allow credentials
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], //
-}
+
 
 
 
@@ -29,8 +24,7 @@ const {
 const app = express();
 dotenv.config();
 app.use(bodyParser.json());
-app.options("*", cors(corsConfig)); // Preflight request for all routes
-app.use(cors(corsConfig)); // Enable CORS for all routes
+
 
 const AuthController = require("./main/controllers/AuthController");
 const PaketController = require("./main/controllers/PaketController");
@@ -49,6 +43,9 @@ const path = require("path");
 
 const port = process.env.PORT;
 
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
 
 
 app.get("/", (req, res) => {
