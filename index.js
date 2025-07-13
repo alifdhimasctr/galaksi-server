@@ -35,8 +35,8 @@ const JadwalController = require("./main/controllers/JadwalController");
 const SubscriptionController = require("./main/controllers/SubscriptionController");
 const PaymentController = require("./main/controllers/PaymentController");
 const DashboardController = require("./main/controllers/DashboardController");
-const HonorController = require("./main/controllers/honorController");
-const ProshareController = require("./main/controllers/proshareController");
+const HonorController = require("./main/controllers/HonorController");
+const ProshareController = require("./main/controllers/ProshareController");
 const TransacttionController = require("./main/controllers/TransactionController");
 
 const path = require("path");
