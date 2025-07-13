@@ -4,6 +4,14 @@ const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
 
 const db = require("./database/db");
+const corsConfig = {
+  origin: "*", // Allow all origins
+  credential: true, // Allow credentials
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], //
+}
+
+app.options("*", cors(corsConfig)); // Preflight request for all routes
+app.use(cors(corsConfig)); // Enable CORS for all routes
 
 const {
   Admin,
