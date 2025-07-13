@@ -55,11 +55,7 @@ app.get("/", (req, res) => {
 //     console.error('Error creating database & tables:', error);
 // });
 
-app.use(
-  cors({
-    origin: "*",
-  })
-);
+
 
 app.use("/", AuthController);
 app.use("/", PaketController);
