@@ -1,7 +1,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
-
+const cors = require("cors");
 const db = require("./database/db");
 
 
@@ -25,6 +25,14 @@ const app = express();
 dotenv.config();
 app.use(bodyParser.json());
 
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "https://bimbelgalaksi.vercel.app"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
+
 
 const AuthController = require("./main/controllers/AuthController");
 const PaketController = require("./main/controllers/PaketController");
@@ -46,6 +54,7 @@ const port = process.env.PORT;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
 
 
 app.get("/", (req, res) => {
