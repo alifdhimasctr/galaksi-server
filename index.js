@@ -10,8 +10,7 @@ const corsConfig = {
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], //
 }
 
-app.options("*", cors(corsConfig)); // Preflight request for all routes
-app.use(cors(corsConfig)); // Enable CORS for all routes
+
 
 const {
   Admin,
@@ -30,6 +29,8 @@ const {
 const app = express();
 dotenv.config();
 app.use(bodyParser.json());
+app.options("*", cors(corsConfig)); // Preflight request for all routes
+app.use(cors(corsConfig)); // Enable CORS for all routes
 
 const AuthController = require("./main/controllers/AuthController");
 const PaketController = require("./main/controllers/PaketController");
