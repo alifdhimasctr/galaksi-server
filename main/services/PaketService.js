@@ -33,7 +33,7 @@ const getAllPaket = async () => {
     return paketList;
     
   } catch (error) {
-    throw new Error(`${error.message}`);
+    throw new Error("Gagal mengambil daftar paket");
   }
 };
 
