@@ -28,7 +28,7 @@ const getAllPaket = async () => {
       },
     });
     if (paketList.length === 0) {
-      throw new Error("Tidak ada paket yang ditemukan");
+      return [];
     }
     return paketList;
     

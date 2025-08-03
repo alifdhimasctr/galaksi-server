@@ -2,7 +2,7 @@
 const db = require("../../database/db");
 const { get } = require("../controllers/AuthController");
 const { Invoice, Siswa, Mitra, Paket } = require("../models");
-const puppeteer = require('puppeteer');
+const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -34,59 +34,41 @@ const getAllInvoices = async (filters = {}) => {
   try {
     const whereClause = {};
     if (filters.status) {
-      whereClause.paymentStatus = filters.status; // Filter berdasarkan status pembayaran
+      whereClause.paymentStatus = filters.status;
     }
     if (filters.siswaId) {
-      whereClause.siswaId = filters.siswaId; // Filter berdasarkan siswaId
+      whereClause.siswaId = filters.siswaId;
     }
 
-    // Ambil semua invoice sesuai filter
     const invoices = await Invoice.findAll({
       where: whereClause,
       order: [['updatedAt', 'DESC']],
     });
-    
-
 
     if (!invoices || invoices.length === 0) {
-      return []; // Tidak ada invoice ditemukan
+      return [];
     }
 
-    // Ambil semua siswa berdasarkan siswaId yang ada di invoice
     const siswaIds = invoices.map((invoice) => invoice.siswaId);
     const siswaList = await Siswa.findAll({
-      where: {
-        id: siswaIds,
-      },
+      where: { id: siswaIds },
     });
 
-    // Ambil semua mitra berdasarkan mitraId yang ada pada siswa
-    const mitraIds = [...new Set(siswaList.map((siswa) => siswa.mitraId))]; // Dapatkan ID mitra unik
+    const mitraIds = [...new Set(siswaList.map((siswa) => siswa.mitraId))];
     const mitraList = await Mitra.findAll({
-      where: {
-        id: mitraIds,
-      },
+      where: { id: mitraIds },
     });
 
-    // Ambil semua paket berdasarkan paketId yang ada di invoice
     const paketIds = invoices.map((invoice) => invoice.paketId);
     const paketList = await Paket.findAll({
-      where: {
-        id: paketIds,
-      },
+      where: { id: paketIds },
     });
 
-    // Gabungkan data invoice dengan siswa, mitra, dan paket
     const invoicesWithDetails = invoices.map((invoice) => {
-      // Cari siswa yang sesuai
       const siswa = siswaList.find((siswa) => siswa.id === invoice.siswaId);
-
-      // Cari mitra yang sesuai berdasarkan siswa.mitraId
       const mitra = siswa
         ? mitraList.find((mitra) => mitra.id === siswa.mitraId)
         : null;
-
-      // Cari paket yang sesuai berdasarkan invoice.paketId
       const paket = paketList.find((paket) => paket.id === invoice.paketId);
 
       return {
@@ -120,11 +102,9 @@ const processInvocePayment = async (invoiceId, transferProof) => {
     });
     if (!invoice) throw new Error("Invoice tidak ditemukan");
 
-    // Ambil data siswa
     const siswa = await Siswa.findByPk(invoice.siswaId, { transaction: t });
     if (!siswa) throw new Error("Siswa tidak ditemukan");
 
-    // Jika pembelian pertama, update status
     if (siswa.isFirstPurchase) {
       siswa.isFirstPurchase = false;
       await siswa.save({ transaction: t });
@@ -174,141 +154,205 @@ const generateInvoicePdf = async (invoiceId) => {
     const paket = await Paket.findByPk(invoice.paketId);
     if (!paket) throw new Error("Paket tidak ditemukan");
 
-    // Hitung biaya pendaftaran dan total
-    const registrationFee = siswa.isFirstPurchase ? 95000 : 0;
-    const total = paket.price + registrationFee;
+    // Pastikan direktori temp ada
+    const tempDir = path.join(__dirname, '../../temp');
+    try {
+      await fs.access(tempDir);
+    } catch {
+      await fs.mkdir(tempDir, { recursive: true });
+    }
 
-    const htmlTemplate = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        /* Modern Invoice Styling */
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; }
-        .invoice-container { max-width: 800px; margin: 0 auto; padding: 30px; }
-        
-        .header { text-align: center; margin-bottom: 30px; }
-        .company-name { font-size: 24px; font-weight: bold; color: #2c3e50; }
-        .tagline { font-size: 14px; color: #7f8c8d; margin: 5px 0; }
-        .contact-info { font-size: 12px; color: #95a5a6; }
-        
-        .recipient-section { margin-bottom: 30px; }
-        .recipient-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-        
-        .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        .invoice-table th { 
-          background-color: #3498db; 
-          color: white; 
-          text-align: left;
-          padding: 12px 15px;
-          border-bottom: 2px solid #2980b9;
-        }
-        .invoice-table td { 
-          padding: 10px 15px;
-          border-bottom: 1px solid #ecf0f1;
-        }
-        .invoice-table tr:nth-child(even) { background-color: #f8f9fa; }
-        .total-row { font-weight: bold; background-color: #e3f2fd !important; }
-        
-        .bank-info { 
-          background-color: #f8f9fa; 
-          padding: 15px;
-          border-radius: 5px;
-          margin-top: 30px;
-        }
-        .bank-info-title { 
-          font-weight: bold; 
-          margin-bottom: 10px;
-          color: #2c3e50;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="invoice-container">
-        <div class="header">
-          <div class="company-name">BIMBINGAN BELAJAR GALAKSI</div>
-          <div class="tagline">Sahabat untuk Meraih Prestasi</div>
-          <div class="contact-info">Tembalang Pesona Asri Blok A No. 24 Semarang | HP 0852-9236-5257</div>
-        </div>
-        
-        <div class="recipient-section">
-          <div class="recipient-title">Kepada Yth:</div>
-          <div>${siswa.parentName}</div>
-          <div>${siswa.address}</div>
-        </div>
-        
-        <table class="invoice-table">
-          <thead>
-            <tr>
-              <th>No</th>
-              <th>Deskripsi</th>
-              <th style="text-align: right;">Harga</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>1</td>
-              <td>${paket.name}</td>
-              <td style="text-align: right;">Rp ${paket.price.toLocaleString('id-ID')}</td>
-            </tr>
-            ${siswa.isFirstPurchase ? `
-            <tr>
-              <td>2</td>
-              <td>Biaya Pendaftaran</td>
-              <td style="text-align: right;">Rp 95,000</td>
-            </tr>
-            ` : ''}
-            <tr class="total-row">
-              <td colspan="2">TOTAL</td>
-              <td style="text-align: right;">Rp ${total.toLocaleString('id-ID')}</td>
-            </tr>
-          </tbody>
-        </table>
-        
-        <div class="bank-info">
-          <div class="bank-info-title">Informasi Pembayaran:</div>
-          <div>Silakan transfer ke rekening berikut:</div>
-          <div>Mandiri: 1360005517518 | BCA: 8030101309</div>
-          <div>BRI: 152901004279509 | BNI: 0905008548</div>
-          <div>Bank Jateng: 2055067697 a.n. Edi Susanto</div>
-        </div>
-      </div>
-    </body>
-    </html>
-    `;
-
-    // Generate PDF menggunakan Puppeteer
-    const browser = await puppeteer.launch({
-      headless: "new",
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    const filePath = path.join(tempDir, `invoice-${invoiceId}.pdf`);
     
-    const page = await browser.newPage();
-    await page.setContent(htmlTemplate);
-    
-    const filePath = path.join(__dirname, '../../temp', `invoice-${invoiceId}.pdf`);
-    
-    await page.pdf({
-      path: filePath,
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm'
+    // Buat PDF document
+    const doc = new PDFDocument({ 
+      size: 'A4', 
+      margin: 50,
+      info: {
+        Title: `Invoice #${invoice.id}`,
+        Author: 'Bimbingan Belajar Galaksi',
+        Subject: 'Invoice Pembayaran',
+        Creator: 'Invoice System'
       }
     });
+
+    // Pipe ke file
+    doc.pipe(require('fs').createWriteStream(filePath));
+
+    // Colors
+    const primaryColor = '#2c3e50';
+    const accentColor = '#3498db';
+    const lightGray = '#ecf0f1';
+    const darkGray = '#7f8c8d';
+
+    // Header dengan background
+    doc.rect(0, 0, doc.page.width, 120).fill('#f8f9fa');
     
-    await browser.close();
+    // Logo placeholder dan company info
+    doc.fillColor(primaryColor)
+       .fontSize(24)
+       .font('Helvetica-Bold')
+       .text('BIMBINGAN BELAJAR GALAKSI', 50, 30);
     
-    return filePath;
+    doc.fillColor(accentColor)
+       .fontSize(12)
+       .font('Helvetica-Oblique')
+       .text('Sahabat untuk Meraih Prestasi', 50, 60);
+    
+    doc.fillColor(darkGray)
+       .fontSize(10)
+       .font('Helvetica')
+       .text('Tembalang Pesona Asri Blok A No. 24 Semarang', 50, 80)
+       .text('HP: 0852-9236-5257', 50, 95);
+
+    // Invoice info di kanan atas
+    const invoiceDate = new Date(invoice.createdAt).toLocaleDateString('id-ID');
+    doc.fillColor(primaryColor)
+       .fontSize(14)
+       .font('Helvetica-Bold')
+       .text(`INVOICE #${invoice.id}`, 400, 30)
+       .fontSize(10)
+       .font('Helvetica')
+       .text(`Tanggal: ${invoiceDate}`, 400, 50)
+       .text(`Status: ${invoice.paymentStatus}`, 400, 65);
+
+    // Garis pemisah
+    doc.moveTo(50, 140)
+       .lineTo(550, 140)
+       .strokeColor(accentColor)
+       .lineWidth(2)
+       .stroke();
+
+    // Detail Penerima
+    let currentY = 170;
+    doc.fillColor(primaryColor)
+       .fontSize(14)
+       .font('Helvetica-Bold')
+       .text('KEPADA YTH:', 50, currentY);
+    
+    currentY += 25;
+    doc.fillColor('#333')
+       .fontSize(11)
+       .font('Helvetica')
+       .text(`Nama: ${siswa.name}`, 50, currentY)
+       .text(`Orang Tua: ${siswa.parentName || '-'}`, 50, currentY + 15)
+       .text(`Alamat: ${siswa.address || '-'}`, 50, currentY + 30);
+
+    // Tabel Invoice
+    currentY += 80;
+    const tableTop = currentY;
+    const tableLeft = 50;
+    const tableWidth = 500;
+
+    // Header tabel
+    doc.rect(tableLeft, tableTop, tableWidth, 35)
+       .fill(accentColor);
+    
+    doc.fillColor('white')
+       .fontSize(11)
+       .font('Helvetica-Bold')
+       .text('No', tableLeft + 15, tableTop + 12)
+       .text('Deskripsi', tableLeft + 60, tableTop + 12)
+       .text('Jumlah', tableLeft + 300, tableTop + 12)
+       .text('Harga', tableLeft + 420, tableTop + 12);
+
+    // Isi tabel
+    let rowY = tableTop + 35;
+    let rowNumber = 1;
+
+    // Row paket
+    doc.rect(tableLeft, rowY, tableWidth, 30)
+       .fill(rowNumber % 2 === 0 ? lightGray : 'white')
+       .stroke('#ddd');
+    
+    doc.fillColor('#333')
+       .fontSize(10)
+       .font('Helvetica')
+       .text(rowNumber.toString(), tableLeft + 15, rowY + 10)
+       .text(paket.name, tableLeft + 60, rowY + 10)
+       .text('1', tableLeft + 320, rowY + 10)
+       .text(`Rp ${paket.price.toLocaleString('id-ID')}`, tableLeft + 420, rowY + 10);
+
+    rowY += 30;
+    rowNumber++;
+
+    // Biaya pendaftaran jika pembelian pertama
+    const registrationFee = siswa.isFirstPurchase ? 95000 : 0;
+    if (registrationFee > 0) {
+      doc.rect(tableLeft, rowY, tableWidth, 30)
+         .fill(rowNumber % 2 === 0 ? lightGray : 'white')
+         .stroke('#ddd');
+      
+      doc.fillColor('#333')
+         .fontSize(10)
+         .font('Helvetica')
+         .text(rowNumber.toString(), tableLeft + 15, rowY + 10)
+         .text('Biaya Pendaftaran', tableLeft + 60, rowY + 10)
+         .text('1', tableLeft + 320, rowY + 10)
+         .text(`Rp ${registrationFee.toLocaleString('id-ID')}`, tableLeft + 420, rowY + 10);
+      
+      rowY += 30;
+    }
+
+    // Total
+    const total = paket.price + registrationFee;
+    doc.rect(tableLeft, rowY, tableWidth, 35)
+       .fill('#e3f2fd')
+       .stroke(accentColor);
+    
+    doc.fillColor(primaryColor)
+       .fontSize(12)
+       .font('Helvetica-Bold')
+       .text('TOTAL', tableLeft + 60, rowY + 12)
+       .text(`Rp ${total.toLocaleString('id-ID')}`, tableLeft + 420, rowY + 12);
+
+    // Informasi Pembayaran
+    currentY = rowY + 80;
+    doc.rect(50, currentY, 500, 120)
+       .fill('#f8f9fa')
+       .stroke('#ddd');
+    
+    doc.fillColor(primaryColor)
+       .fontSize(12)
+       .font('Helvetica-Bold')
+       .text('INFORMASI PEMBAYARAN', 70, currentY + 15);
+    
+    doc.fillColor('#333')
+       .fontSize(10)
+       .font('Helvetica')
+       .text('Silakan transfer ke salah satu rekening berikut:', 70, currentY + 35)
+       .text('• Mandiri: 1360005517518', 70, currentY + 50)
+       .text('• BCA: 8030101309', 280, currentY + 50)
+       .text('• BRI: 152901004279509', 70, currentY + 65)
+       .text('• BNI: 0905008548', 280, currentY + 65)
+       .text('• Bank Jateng: 2055067697', 70, currentY + 80)
+       .font('Helvetica-Bold')
+       .text('a.n. Edi Susanto', 70, currentY + 95);
+
+    // Footer
+    doc.fillColor(darkGray)
+       .fontSize(8)
+       .font('Helvetica')
+       .text('Terima kasih atas kepercayaan Anda kepada Bimbingan Belajar Galaksi', 50, doc.page.height - 50, {
+         align: 'center',
+         width: 500
+       });
+
+    // Finalize PDF
+    doc.end();
+
+    // Tunggu sampai file selesai dibuat
+    return new Promise((resolve, reject) => {
+      doc.on('end', () => {
+        resolve(filePath);
+      });
+      doc.on('error', reject);
+    });
+
   } catch (error) {
     throw new Error(`Error saat membuat PDF: ${error.message}`);
   }
 };
-
 
 module.exports = {
   createInvoice,

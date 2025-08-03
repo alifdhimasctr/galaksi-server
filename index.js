@@ -27,7 +27,7 @@ app.use(bodyParser.json());
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://bimbelgalaksi.vercel.app"],
+    origin: ["http://localhost:3000", "https://bimbelgalaksi.vercel.app","https://bimbelgalaksi.com"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
@@ -49,7 +49,9 @@ const TransacttionController = require("./main/controllers/TransactionController
 
 const path = require("path");
 
-const port = process.env.PORT;
+const port = process.env.PORT || 4000;
+
+app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

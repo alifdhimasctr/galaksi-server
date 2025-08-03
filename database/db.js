@@ -4,14 +4,21 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const db = new Sequelize(
-  process.env.DB_NAME, // 'galaksi'
-  process.env.DB_USER, // 'root'
-  process.env.DB_PASSWORD, // '@AsRf128'
+  process.env.DB_NAME,
+  process.env.DB_USER, 
+  process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
-    dialect: process.env.DB_DIALECT,
+    dialect: "mysql",
     dialectModule: mysql2,
     port: process.env.DB_PORT,
+    pool: { // 👇 Tambahkan konfigurasi pool
+      max: 5,     // Maksimal 5 koneksi
+      min: 0,
+      acquire: 30000,
+      idle: 10000, // Tutup koneksi setelah 10 detik idle
+      connectTimeout: 30000 // Waktu tunggu koneksi 20 detik
+    },
     dialectOptions: {
       dateStrings: true,
       typeCast(field, next) {
@@ -22,6 +29,7 @@ const db = new Sequelize(
       },
     },
     timezone: "+07:00",
+    logging: false // 👈 Nonaktifkan logging query
   }
 );
 
@@ -38,3 +46,5 @@ const testConnection = async () => {
 testConnection();
 
 module.exports = db;
+
+

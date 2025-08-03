@@ -5,45 +5,20 @@ const { Op, Sequelize } = require("sequelize");
 const db = require("../../database/db");
 const { sendAccountCreationEmail } = require("./mailService");
 
+
 const JWT_SECRET = process.env.JWT_SECRET;
-
-// Helper untuk parsing JSON dengan aman
-const safeJsonParse = (str) => {
-  if (!str) return [];
-  try {
-    return JSON.parse(str);
-  } catch (e) {
-    if (typeof str === "string") {
-      return str.split(",").map(item => item.trim());
-    }
-    return [];
-  }
-};
-
-// Helper untuk generate username unik
-const generateUniqueUsername = async (baseName) => {
-  let username = baseName.toLowerCase().replace(/\s+/g, "");
-  let counter = 1;
-  let newUsername = username;
-
-  while (true) {
-    const existingUser = await checkUsernameUniqueness(newUsername);
-    if (!existingUser) return newUsername;
-    
-    newUsername = `${username}${counter}`;
-    counter++;
-  }
-};
 
 const createAdmin = async (adminData) => {
   try {
     const { username, password } = adminData;
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    return await Admin.create({
+    const newAdmin = await Admin.create({
       ...adminData,
       password: hashedPassword,
     });
+
+    return newAdmin;
   } catch (error) {
     console.error("Error creating admin:", error);
     throw new Error("Failed to create admin");
@@ -51,77 +26,124 @@ const createAdmin = async (adminData) => {
 };
 
 const checkUsernameUniqueness = async (username) => {
-  const [existingTentor, existingMitra, existingSiswa, existingAdmin] = await Promise.all([
+  // Cek di Tentor, Mitra, dan Siswa
+  const [existingTentor, existingMitra, existingSiswa] = await Promise.all([
     Tentor.findOne({ where: { username } }),
     Mitra.findOne({ where: { username } }),
     Siswa.findOne({ where: { username } }),
-    Admin.findOne({ where: { username } })
   ]);
 
-  return existingTentor || existingMitra || existingSiswa || existingAdmin;
+  return existingTentor || existingMitra || existingSiswa; // Jika ada yang ditemukan, username sudah duplikat
 };
 
 const createTentor = async (tentorData) => {
   const {
     name,
+    noHp,
+    gender,
+    address,
+    city,
+    faculty,
+    university,
     level,
+    foto,
+    ktp,
+    sim,
+    cv,
+    bankName,
+    bankNumber,
     mapel,
-    email
   } = tentorData;
 
-  // Generate username unik
-  const username = await generateUniqueUsername(name);
-  
   const password = process.env.DEFAULT_PASSWORD;
   if (!password) {
     throw new Error("DEFAULT_PASSWORD belum diatur di environment variables");
   }
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Validasi dan format level
+  let username = name ? name.toLowerCase().replace(/\s+/g, "") : null;
+  const existingTentor = await Siswa.findOne({
+    where: {
+      username: {
+        [Op.like]: `${username}%`,
+      },
+    },
+    order: [["username", "DESC"]],
+  });
+
+  if (existingTentor) {
+    const match = existingTentor.username.match(/(\d+)$/);
+    const increment = match ? parseInt(match[1], 10) + 1 : 1;
+    username = `${username}${increment}`;
+  }
+
+  let existingUser = await checkUsernameUniqueness(username);
+  if (existingUser) {
+    const match = username.match(/(\d+)$/);
+    const increment = match ? parseInt(match[1], 10) + 1 : 1;
+    username = `${username}${increment}`;
+  }
+
   let levelArray = [];
   if (Array.isArray(level)) {
     levelArray = level;
   } else if (level) {
-    levelArray = safeJsonParse(level);
+    try {
+      levelArray = JSON.parse(level);
+    } catch (error) {
+      throw new Error("Invalid format for level");
+    }
   }
 
-  // Validasi dan format mapel
   let mapelArray = [];
   if (Array.isArray(mapel)) {
     mapelArray = mapel;
   } else if (mapel) {
-    mapelArray = safeJsonParse(mapel);
+    try {
+      mapelArray = JSON.parse(mapel);
+    } catch (error) {
+      throw new Error("Invalid format for mapel");
+    }
   }
 
-  // Simpan sebagai JSON string
+  
+
   const newTentor = await Tentor.create({
     ...tentorData,
     username,
     password: hashedPassword,
-    level: JSON.stringify(levelArray),
-    mapel: JSON.stringify(mapelArray)
+    level: levelArray,
+    mapel: mapelArray,
+    foto,
+    ktp,
+    cv,
+    sim,
   });
 
-  // Kirim email (tidak mengganggu proses utama)
-  if (email) {
     try {
-      await sendAccountCreationEmail(
-        email, 
-        username, 
-        password,
-        "tentor",
-        name
-      );
-    } catch (emailError) {
-      console.error("Email notification failed:", emailError);
-    }
+    await sendAccountCreationEmail(
+      tentorData.email, 
+      username, 
+      process.env.DEFAULT_PASSWORD,
+      "tentor",
+      tentorData.name
+    );
+  } catch (emailError) {
+    console.error("Email notification failed:", emailError);
+    // Tidak perlu throw error karena akun sudah berhasil dibuat
   }
 
   return newTentor;
 };
 
 const updateTentor = async (tentorId, tentorData) => {
+  const {
+    name,
+    level,
+    mapel,
+    password
+  } = tentorData;
+
   const existingTentor = await Tentor.findByPk(tentorId);
   if (!existingTentor) {
     throw new Error("Tentor tidak ditemukan");
@@ -129,44 +151,63 @@ const updateTentor = async (tentorId, tentorData) => {
 
   const updatedData = { ...tentorData };
 
-  // Handle password update
-  if (tentorData.password) {
-    updatedData.password = await bcrypt.hash(tentorData.password, 10);
+  if (password) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    updatedData.password = hashedPassword;
   }
 
-  // Handle username update jika nama berubah
-  if (tentorData.name && tentorData.name !== existingTentor.name) {
-    updatedData.username = await generateUniqueUsername(tentorData.name);
+  if (name && name !== existingTentor.name) {
+    updatedData.username = name.toLowerCase().replace(/\s+/g, "");
   }
 
-  // Handle level dan mapel
-  if (tentorData.level) {
-    let levelArray = Array.isArray(tentorData.level) ? 
-      tentorData.level : 
-      safeJsonParse(tentorData.level);
-    updatedData.level = JSON.stringify(levelArray);
+  let levelArray = [];
+  if (Array.isArray(level)) {
+    levelArray = level;
+  } else if (level) {
+    try {
+      levelArray = JSON.parse(level);
+    } catch (error) {
+      throw new Error("Invalid format for level");
+    }
   }
+  updatedData.level = levelArray;
 
-  if (tentorData.mapel) {
-    let mapelArray = Array.isArray(tentorData.mapel) ? 
-      tentorData.mapel : 
-      safeJsonParse(tentorData.mapel);
-    updatedData.mapel = JSON.stringify(mapelArray);
+  let mapelArray = [];
+  if (Array.isArray(mapel)) {
+    mapelArray = mapel;
+  } else if (mapel) {
+    try {
+      mapelArray = JSON.parse(mapel);
+    } catch (error) {
+      throw new Error("Invalid format for mapel");
+    }
   }
+  updatedData.mapel = mapelArray;
 
-  return await existingTentor.update(updatedData);
+  
+
+  const updatedTentor = await existingTentor.update(updatedData);
+  return updatedTentor;
 };
 
 const createMitra = async (mitraData) => {
-  const { name, email } = mitraData;
+  const { name, email, branch, address, city, noHp } = mitraData;
 
   const password = process.env.DEFAULT_PASSWORD;
   if (!password) {
     throw new Error("DEFAULT_PASSWORD belum diatur di environment variables");
   }
-  
-  const username = await generateUniqueUsername(name);
   const hashedPassword = await bcrypt.hash(password, 10);
+
+  const username = name ? name.toLowerCase().replace(/\s+/g, "") : null;
+  
+
+  let existingUser = await checkUsernameUniqueness(username);
+  if (existingUser) {
+    const match = username.match(/(\d+)$/);
+    const increment = match ? parseInt(match[1], 10) + 1 : 1;
+    username = `${username}${increment}`;
+  }
 
   const newMitra = await Mitra.create({
     ...mitraData,
@@ -174,78 +215,124 @@ const createMitra = async (mitraData) => {
     password: hashedPassword,
   });
 
-  // Kirim email
-  if (email) {
-    try {
-      await sendAccountCreationEmail(
-        email, 
-        username, 
-        password,
-        "mitra",
-        name
-      );
-    } catch (emailError) {
-      console.error("Email notification failed:", emailError);
-    }
+  try {
+    await sendAccountCreationEmail(
+      mitraData.email, 
+      username, 
+      process.env.DEFAULT_PASSWORD,
+      "mitra",
+      mitraData.name
+    );
+  } catch (emailError) {
+    console.error("Email notification failed:", emailError);
   }
 
   return newMitra;
 };
 
 const createSiswa = async (siswaData) => {
-  const { name, email } = siswaData;
+  const {
+    name,
+    noHp,
+    email,
+    gender,
+    parentName,
+    parentJob,
+    address,
+    city,
+    purpose,
+    level, // masih diterima dari frontend
+  } = siswaData;
 
   const password = process.env.DEFAULT_PASSWORD;
   if (!password) {
     throw new Error("DEFAULT_PASSWORD belum diatur di environment variables");
   }
-  
-  const username = await generateUniqueUsername(name);
+
+  let username = name.toLowerCase().replace(/\s+/g, "");
+  const existingSiswa = await Siswa.findOne({
+    where: {
+      username: {
+        [Op.like]: `${username}%`,
+      },
+    },
+    order: [["username", "DESC"]],
+  });
+
+  if (existingSiswa) {
+    const match = existingSiswa.username.match(/(\d+)$/);
+    const increment = match ? parseInt(match[1], 10) + 1 : 1;
+    username = `${username}${increment}`;
+  }
+
+  let existingUser = await checkUsernameUniqueness(username);
+  if (existingUser) {
+    const match = username.match(/(\d+)$/);
+    const increment = match ? parseInt(match[1], 10) + 1 : 1;
+    username = `${username}${increment}`;
+  }
+
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const newSiswa = await Siswa.create({
     ...siswaData,
-    username,
+    username: username,
     password: hashedPassword,
     role: "siswa",
   });
 
-  // Kirim email
-  if (email) {
-    try {
-      await sendAccountCreationEmail(
-        email, 
-        username, 
-        password,
-        "siswa",
-        name
-      );
-    } catch (emailError) {
-      console.error("Email notification failed:", emailError);
-    }
+  try {
+    await sendAccountCreationEmail(
+      siswaData.email, 
+      username, 
+      process.env.DEFAULT_PASSWORD,
+      "siswa",
+      siswaData.name
+    );
+  } catch (emailError) {
+    console.error("Email notification failed:", emailError);
   }
 
   return newSiswa;
 };
 
 const login = async (username, password) => {
-  const roles = [
-    { model: Admin, role: "admin" },
-    { model: Tentor, role: "tentor" },
-    { model: Mitra, role: "mitra" },
-    { model: Siswa, role: "siswa" }
-  ];
+  let user;
+  let role;
 
-  let user = null;
-  let userRole = null;
-
-  // Cek semua role
-  for (const { model, role } of roles) {
-    const foundUser = await model.findOne({ where: { username } });
-    if (foundUser) {
-      user = foundUser;
-      userRole = role;
-      break;
+  user = await Admin.findOne({
+    where: {
+      username,
+    },
+  });
+  if (user) {
+    role = "admin";
+  } else {
+    user = await Tentor.findOne({
+      where: {
+        username,
+      },
+    });
+    if (user) {
+      role = "tentor";
+    } else {
+      user = await Mitra.findOne({
+        where: {
+          username,
+        },
+      });
+      if (user) {
+        role = "mitra";
+      } else {
+        user = await Siswa.findOne({
+          where: {
+            username,
+          },
+        });
+        if (user) {
+          role = "siswa";
+        }
+      }
     }
   }
 
@@ -262,87 +349,107 @@ const login = async (username, password) => {
     {
       id: user.id,
       username: user.username,
-      role: userRole,
+      role: role,
     },
     JWT_SECRET
   );
 
+  if (role === "siswa") {
+    return {
+      token,
+      user: {
+        name: user.name,
+        id: user.id,
+        username: user.username,
+        role: role,
+        level: user.level,
+      },
+    };
+  }
   return {
     token,
     user: {
       name: user.name,
       id: user.id,
       username: user.username,
-      role: userRole,
-      ...(userRole === "siswa" && { level: safeJsonParse(user.level) })
-    }
+      role: role,
+    },
   };
 };
 
 const getAllUsers = async (role, filters = {}) => {
+  let users;
+  // Hapus deklarasi siswaList dan mitraList di sini, akan diambil per case
+
   switch (role) {
     case "admin":
-      return await Admin.findAll();
-
+      users = await Admin.findAll();
+      break;
     case "tentor":
-      const tentors = await Tentor.findAll();
-      const mapels = await Mapel.findAll();
-
-      return tentors.map(tentor => ({
-        ...tentor.toJSON(),
-        level: safeJsonParse(tentor.level),
-        mapel: safeJsonParse(tentor.mapel).map(id => 
-          mapels.find(m => m.id === id)?.name || id
-        )
-      }));
-
+      mapels = await Mapel.findAll();
+      users = await Tentor.findAll();
+      users = users.map((tentor) => {
+        return {
+          ...tentor.toJSON(),
+          mapel: mapels
+            .filter((mapel) => tentor.mapel.includes(mapel.id))
+            .map((m) => m.name),
+          level: JSON.parse(tentor.level),
+        };
+      });
+      break;
     case "mitra":
-      const mitras = await Mitra.findAll();
-      const siswas = await Siswa.findAll();
-
-      return mitras.map(mitra => ({
-        ...mitra.toJSON(),
-        siswa: siswas
-          .filter(siswa => siswa.mitraId === mitra.id)
-          .map(siswa => ({ id: siswa.id, name: siswa.name }))
-      }));
-
+      const siswasMitra = await Siswa.findAll();
+      users = await Mitra.findAll();
+      users = users.map((mitra) => {
+        return {
+          ...mitra.toJSON(),
+          siswa: [
+            ...siswasMitra
+              .filter((siswa) => siswa.mitraId === mitra.id)
+              .map((siswa) => ({
+                id: siswa.id,
+                name: siswa.name,
+              })),
+          ],
+        };
+      });
+      break;
     case "siswa":
-      const whereClause = filters.mitraId ? { mitraId: filters.mitraId } : {};
-      const siswaList = await Siswa.findAll({ where: whereClause });
-      const mitraList = await Mitra.findAll();
-
-      return siswaList.map(siswa => {
-        const mitra = mitraList.find(m => m.id === siswa.mitraId);
+      // FILTERING SISWA BERDASARKAN MITRAID (OPTIONAL)
+      const filterOptions = {};
+      if (filters.mitraId) {
+        filterOptions.where = { mitraId: filters.mitraId };
+      }
+      const siswaList = await Siswa.findAll(filterOptions);
+      const mitraListSiswa = await Mitra.findAll();
+      users = siswaList.map((siswa) => {
+        const mitra = mitraListSiswa.find((m) => m.id === siswa.mitraId);
         return {
           ...siswa.toJSON(),
           mitraName: mitra ? mitra.name : "-",
-          level: safeJsonParse(siswa.level)
         };
       });
-
+      break;
     case "all":
-      const [admins, tentorsAll, mitrasAll, siswaListAll] = await Promise.all([
+      users = await Promise.all([
         Admin.findAll(),
         Tentor.findAll(),
         Mitra.findAll(),
         Siswa.findAll(),
       ]);
-      return { admins, tentors: tentorsAll, mitras: mitrasAll, siswa: siswaListAll };
-
+      break;
     default:
       throw new Error("Role tidak valid");
   }
+
+  return users;
 };
 
 const getAllTentor = async (level, host) => {
   try {
-    const whereClause = level ? 
-      Sequelize.literal(`JSON_CONTAINS(level, '"${level}"')`) : 
-      {};
-
     const tentors = await Tentor.findAll({
-      where: whereClause,
+      where: Sequelize.literal(`JSON_CONTAINS(level, '["${level}"]')`),
       attributes: {
         exclude: ["password"],
         include: [
@@ -361,23 +468,20 @@ const getAllTentor = async (level, host) => {
 
     const mapels = await Mapel.findAll();
 
+    // Parse JSON fields
     return tentors.map(tentor => {
-      const levelData = safeJsonParse(tentor.level);
-      const mapelIds = safeJsonParse(tentor.mapel);
-      
-      const mapelData = mapelIds.map(id => {
-        const mapel = mapels.find(m => m.id == id);
-        return mapel ? { id: mapel.id, name: mapel.name } : { id, name: "Unknown" };
-      });
+      const mapelIds = tentor.mapel ? JSON.parse(tentor.mapel) : [];
+      const mapelNames = mapels
+        .filter(mapel => mapelIds.includes(mapel.id))
+        .map(m => ({ id: m.id, name: m.name }));
 
       return {
-        ...tentor,
-        level: levelData,
-        mapel: mapelData
+      ...tentor,
+      level: tentor.level ? JSON.parse(tentor.level) : [],
+      mapel: mapelNames,
       };
     });
   } catch (error) {
-    console.error("Error in getAllTentor:", error);
     throw error;
   }
 };
@@ -388,21 +492,19 @@ const getUserById = async (userId, role) => {
     case "admin":
       user = await Admin.findByPk(userId);
       break;
-
     case "tentor":
+      // Include mapel and level in the tentor object
+      mapels = await Mapel.findAll();
       user = await Tentor.findByPk(userId);
       if (user) {
-        const mapels = await Mapel.findAll();
-        return {
-          ...user.toJSON(),
-          level: safeJsonParse(user.level),
-          mapel: safeJsonParse(user.mapel).map(id => 
-            mapels.find(m => m.id === id)?.name || id
-          )
-        };
+        const userObj = user.toJSON();
+        userObj.mapel = mapels
+          .filter((mapel) => userObj.mapel.includes(mapel.id))
+          .map((m) => m.name);
+        userObj.level = userObj.level ? JSON.parse(userObj.level) : [];
+        return userObj;
       }
       break;
-
     case "mitra":
       user = await Mitra.findByPk(userId);
       if (user) {
@@ -410,85 +512,88 @@ const getUserById = async (userId, role) => {
           where: { mitraId: user.id },
           attributes: ["id", "name"],
         });
-        return {
-          ...user.toJSON(),
-          siswa: siswa.map(s => ({ id: s.id, name: s.name }))
-        };
+        const userObj = user.toJSON();
+        userObj.siswa = siswa.map((s) => ({
+          id: s.id,
+          name: s.name,
+        }));
+        return userObj;
       }
-      break;
 
+      break;
     case "siswa":
       user = await Siswa.findByPk(userId);
       if (user) {
         const mitra = await Mitra.findByPk(user.mitraId);
-        return {
-          ...user.toJSON(),
-          mitraName: mitra ? mitra.name : "-",
-          level: safeJsonParse(user.level)
-        };
+        const userObj = user.toJSON();
+        userObj.mitraName = mitra ? mitra.name : "-";
+        return userObj;
       }
       break;
-
     default:
       throw new Error("Role tidak valid");
   }
-
-  if (!user) throw new Error("User tidak ditemukan");
+  if (!user) {
+    throw new Error("User tidak ditemukan");
+  }
   return user;
 };
 
 const updateUser = async (userId, userData, role) => {
-  const models = {
-    admin: Admin,
-    tentor: Tentor,
-    mitra: Mitra,
-    siswa: Siswa
-  };
+  let user;
 
-  const model = models[role];
-  if (!model) throw new Error("Role tidak valid");
+  switch (role) {
+    case "admin":
+      user = await Admin.findByPk(userId);
+      break;
+    case "tentor":
+      user = await Tentor.findByPk(userId);
+      break;
+    case "mitra":
+      user = await Mitra.findByPk(userId);
+      break;
+    case "siswa":
+      user = await Siswa.findByPk(userId);
+      break;
+    default:
+      throw new Error("Role tidak valid");
+  }
 
-  const user = await model.findByPk(userId);
-  if (!user) throw new Error("User tidak ditemukan");
-
-  // Handle khusus update untuk Tentor
-  if (role === "tentor") {
-    if (userData.level) {
-      userData.level = JSON.stringify(
-        Array.isArray(userData.level) ? 
-        userData.level : 
-        safeJsonParse(userData.level)
-      );
-    }
-
-    if (userData.mapel) {
-      userData.mapel = JSON.stringify(
-        Array.isArray(userData.mapel) ? 
-        userData.mapel : 
-        safeJsonParse(userData.mapel)
-      );
-    }
+  if (!user) {
+    throw new Error("User tidak ditemukan");
   }
 
   await user.update(userData);
+
   return user;
 };
 
 const deleteUser = async (userId, role) => {
-  const models = {
-    admin: Admin,
-    tentor: Tentor,
-    mitra: Mitra,
-    siswa: Siswa
-  };
+  let user;
 
-  const model = models[role];
-  if (!model) throw new Error("Role tidak valid");
+  switch (role) {
+    case "admin":
+      user = await Admin.findByPk(userId);
+      break;
+    case "tentor":
+      user = await Tentor.findByPk(userId);
+      break;
+    case "mitra":
+      user = await Mitra.findByPk(userId);
+      break;
+    case "siswa":
+      user = await Siswa.findByPk(userId);
+      break;
+    default:
+      throw new Error("Role tidak valid");
+  }
 
-  const user = await model.findByPk(userId);
-  if (!user) throw new Error("User tidak ditemukan");
+  if (!user) {
+    throw new Error("User tidak ditemukan");
+  }
 
   await user.destroy();
+
   return user;
 };
 
