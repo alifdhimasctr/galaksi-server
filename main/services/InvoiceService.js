@@ -190,7 +190,7 @@ const generateInvoicePdf = async (invoiceId) => {
     
     // Logo placeholder dan company info
     doc.fillColor(primaryColor)
-       .fontSize(24)
+       .fontSize(18)
        .font('Helvetica-Bold')
        .text('BIMBINGAN BELAJAR GALAKSI', 50, 30);
     
@@ -208,13 +208,13 @@ const generateInvoicePdf = async (invoiceId) => {
     // Invoice info di kanan atas
     const invoiceDate = new Date(invoice.createdAt).toLocaleDateString('id-ID');
     doc.fillColor(primaryColor)
-       .fontSize(14)
+       .fontSize(10)
        .font('Helvetica-Bold')
        .text(`INVOICE #${invoice.id}`, 400, 30)
        .fontSize(10)
        .font('Helvetica')
-       .text(`Tanggal: ${invoiceDate}`, 400, 50)
-       .text(`Status: ${invoice.paymentStatus}`, 400, 65);
+       .text(`Tanggal: ${invoiceDate}`, 400, 60)
+       .text(`Status: ${invoice.paymentStatus}`, 400, 75);
 
     // Garis pemisah
     doc.moveTo(50, 140)

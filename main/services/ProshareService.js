@@ -101,7 +101,7 @@ const generateProsharePdf = async (proshareId) => {
 
     // Hitung persentase proshare jika ada data invoice
     const invoiceTotal = proshareDetails.invoice?.price || 0;
-    const prosharePercentage = invoiceTotal > 0 ? ((proshareDetails.total / invoiceTotal) * 100).toFixed(1) : 0;
+    const prosharePercentage = 10
 
     // Pastikan direktori temp ada
     const tempDir = path.join(__dirname, '../../temp');
@@ -143,7 +143,7 @@ const generateProsharePdf = async (proshareId) => {
     
     // Company info
     doc.fillColor(primaryColor)
-       .fontSize(24)
+       .fontSize(18)
        .font('Helvetica-Bold')
        .text('BIMBINGAN BELAJAR GALAKSI', 50, 30);
     
@@ -169,17 +169,17 @@ const generateProsharePdf = async (proshareId) => {
     const statusColor = proshareDetails.paymentStatus === 'Paid' ? successColor : dangerColor;
     
     doc.fillColor(primaryColor)
-       .fontSize(12)
+       .fontSize(10)
        .font('Helvetica-Bold')
        .text(`Proshare ID: #${proshareId}`, 400, 30)
        .fontSize(10)
        .font('Helvetica')
-       .text(`Tanggal: ${proshareDate}`, 400, 50);
+       .text(`Tanggal: ${proshareDate}`, 400, 60);
     
     doc.fillColor(statusColor)
        .fontSize(10)
        .font('Helvetica-Bold')
-       .text(`Status: ${proshareDetails.paymentStatus}`, 400, 65);
+       .text(`Status: ${proshareDetails.paymentStatus}`, 400, 75);
 
     // Garis pemisah
     doc.moveTo(50, 160)
@@ -245,7 +245,7 @@ const generateProsharePdf = async (proshareId) => {
        .font('Helvetica')
        .text(`Invoice ID: #${proshareDetails.invoice?.id || 'N/A'}`, 70, currentY + 30)
        .text(`Tanggal Invoice: ${proshareDetails.invoice?.createdAt ? formatDate(proshareDetails.invoice.createdAt) : 'N/A'}`, 70, currentY + 45)
-       .text(`Total Invoice: Rp ${(proshareDetails.invoice?.price || 0).toLocaleString('id-ID')}`, 320, currentY + 30)
+       .text(`Total Invoice: Rp ${(proshareDetails.paket?.price || 0).toLocaleString('id-ID')}`, 320, currentY + 30)
        .text(`Status Invoice: ${proshareDetails.invoice?.paymentStatus || 'N/A'}`, 320, currentY + 45);
 
     // Summary pembayaran
@@ -261,7 +261,7 @@ const generateProsharePdf = async (proshareId) => {
 
     // Summary items
     const summaryItems = [
-      { label: 'Total Invoice', value: `Rp ${(proshareDetails.invoice?.price || 0).toLocaleString('id-ID')}` },
+      { label: 'Total Invoice', value: `Rp ${(proshareDetails.paket?.price || 0).toLocaleString('id-ID')}` },
       { label: 'Persentase Proshare', value: `${prosharePercentage}%` },
       { label: 'Jumlah Proshare', value: `Rp ${proshareDetails.total.toLocaleString('id-ID')}` }
     ];

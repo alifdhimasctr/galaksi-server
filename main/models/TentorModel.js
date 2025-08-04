@@ -18,128 +18,128 @@ const Tentor = db.define(
       allowNull: false,
       defaultValue: function () {
         return this.name ? this.name.toLowerCase().replace(/\s+/g, "") : null;
-      }
-    },
-    password: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      defaultValue: process.env.DEFAULT_PASSWORD,
-    },
-    noHp: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    gender: {
-      type: DataTypes.ENUM("L", "P"),
-      allowNull: false,
-    },
-    address: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    city: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    faculty: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    university: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    level: {
-      type: DataTypes.JSON,
-      allowNull: false,
-    },
-    mapel:{
-      type: DataTypes.JSON,
-      allowNull: false,
-    },
-    dateJoin: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    status: {
-      type: DataTypes.ENUM("active", "nonactive"),
-      allowNull: false,
-      defaultValue: "active",
-    },
-    wallet: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-    },
-    bankName: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    bankNumber: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    foto: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    ktp: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    sim: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    cv: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    fotoUrl: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('foto')}`;
-      },
-      set(value) { throw new Error('Do not try to set `fotoUrl`'); }
-    },
-    ktpUrl: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('ktp')}`;
-      },
-      set(value) { throw new Error('Do not try to set `ktpUrl`'); }
-    },
-    simUrl: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('sim')}`;
-      },
-      set(value) { throw new Error('Do not try to set `simUrl`'); }
-    },
-    cvUrl: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        return `${process.env.BASE_URL}/uploads/tentor/${this.getDataValue('cv')}`;
-      },
-      set(value) { throw new Error('Do not try to set `cvUrl`'); }
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
-    },
-  },
-  {
-    hooks: {
-      beforeValidate: async (tentor) => {
+            }
+          },
+          password: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            defaultValue: process.env.DEFAULT_PASSWORD,
+          },
+          noHp: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          email: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          gender: {
+            type: DataTypes.ENUM("L", "P"),
+            allowNull: false,
+          },
+          address: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          city: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          faculty: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          university: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          level: {
+            type: DataTypes.JSON,
+            allowNull: false,
+          },
+          mapel:{
+            type: DataTypes.JSON,
+            allowNull: false,
+          },
+          dateJoin: {
+            type: DataTypes.DATE,
+            allowNull: false,
+            defaultValue: DataTypes.NOW,
+          },
+          status: {
+            type: DataTypes.ENUM("active", "nonactive"),
+            allowNull: false,
+            defaultValue: "active",
+          },
+          wallet: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
+          },
+          bankName: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          bankNumber: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          foto: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          ktp: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          sim: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          cv: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          fotoUrl: {
+            type: DataTypes.VIRTUAL,
+            get() {
+        return this.getDataValue('foto');
+            },
+            set(value) { throw new Error('Do not try to set `fotoUrl`'); }
+          },
+          ktpUrl: {
+            type: DataTypes.VIRTUAL,
+            get() {
+        return this.getDataValue('ktp');
+            },
+            set(value) { throw new Error('Do not try to set `ktpUrl`'); }
+          },
+          simUrl: {
+            type: DataTypes.VIRTUAL,
+            get() {
+        return this.getDataValue('sim');
+            },
+            set(value) { throw new Error('Do not try to set `simUrl`'); }
+          },
+          cvUrl: {
+            type: DataTypes.VIRTUAL,
+            get() {
+        return this.getDataValue('cv');
+            },
+            set(value) { throw new Error('Do not try to set `cvUrl`'); }
+          },
+          createdAt: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+          },
+          updatedAt: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+          },
+        },
+        {
+          hooks: {
+            beforeValidate: async (tentor) => {
         const lastTentor = await Tentor.findOne({
           order: [["createdAt", "DESC"]],
         });

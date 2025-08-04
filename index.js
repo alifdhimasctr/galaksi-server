@@ -63,12 +63,12 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// db.sync({ force: true }).then(() => {
-//     console.log('Database & tables created!');
-// }
-// ).catch((error) => {
-//     console.error('Error creating database & tables:', error);
-// });
+db.sync({ force: true }).then(() => {
+    console.log('Database & tables created!');
+}
+).catch((error) => {
+    console.error('Error creating database & tables:', error);
+});
 
 
 
@@ -134,4 +134,12 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 //   })
 //   .catch((error) => {
 //     console.error("Error creating Proshare table:", error);
+//   });
+
+// Tentor.sync({ force: true })
+//   .then(() => {
+//     console.log("Tentor table created!");
+//   })
+//   .catch((error) => {
+//     console.error("Error creating Tentor table:", error);
 //   });

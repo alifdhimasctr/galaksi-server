@@ -1,16 +1,16 @@
 const express = require('express');
 const authService = require('../services/AuthService');
 const { authMiddleware } = require('../../middleware');
-const upload = require('../../helper/upload');
-const { Tentor } = require('../models');
-const router = express.Router();
 
+const cloudina = require('../services/cloudinaryService');
+const { Tentor } = require('../models');
+const { uploadMiddleware, handleCloudinaryUploadSingle, handleCloudinaryUploadMultiple } = require('../../helper/upload');
+const router = express.Router();
 
 /*REGISTER*/
 router.post('/register/siswa', async (req, res) => {
   try {
     const siswaData = req.body;
-
     const user = await authService.createSiswa(siswaData);
     res.status(201).json({
       message: 'Siswa berhasil terdaftar!',
@@ -21,15 +21,34 @@ router.post('/register/siswa', async (req, res) => {
   }
 });
 
+//contoh upload file
+router.post('/upload',
+  uploadMiddleware.fields([{ name: 'file', maxCount: 2 }]),
+  handleCloudinaryUploadMultiple,
+  (req, res) => {
+    res.status(200).json({
+      message: 'File uploaded successfully!',
+      files: req.files.file.map(file => ({
+        originalname: file.originalname,
+        cloudinaryUrl: file.cloudinaryUrl,
+        publicId: file.publicId,
+        cloudinarySize: file.cloudinarySize
+      }))
+    });
+  }
+)
+
 router.post('/register/tentor',
-  upload.fields([
+  uploadMiddleware.fields([ // Menggunakan uploadMiddleware baru
     { name: 'foto', maxCount: 1 },
     { name: 'sim',  maxCount: 1 },
     { name: 'ktp',  maxCount: 1 },
     { name: 'cv',   maxCount: 1 }
   ]),
+  handleCloudinaryUploadMultiple, // Middleware untuk upload ke Cloudinary
   async (req, res) => {
     try {
+      // Validasi file
       if (!req.files?.foto || !req.files?.sim || !req.files?.ktp || !req.files?.cv) {
         return res.status(400).json({
           message: 'Foto, SIM, KTP, dan CV wajib di-upload.',
@@ -37,10 +56,10 @@ router.post('/register/tentor',
       }
       const tentorData = {
         ...req.body,
-        foto: req.files.foto[0].filename,
-        sim : req.files.sim[0].filename,
-        ktp : req.files.ktp[0].filename,
-        cv  : req.files.cv[0].filename,
+        foto: req.files.foto[0].cloudinaryUrl,
+        sim : req.files.sim[0].cloudinaryUrl,
+        ktp : req.files.ktp[0].cloudinaryUrl,
+        cv  : req.files.cv[0].cloudinaryUrl,
       };
 
       const user = await authService.createTentor(tentorData);
@@ -52,7 +71,10 @@ router.post('/register/tentor',
     } catch (error) {
       console.error('Register Tentor error:', error);
       const status = error.name === 'SequelizeValidationError' ? 400 : 500;
-      return res.status(status).json({ message: error.message });
+      return res.status(status).json({ 
+        message: error.message,
+        details: error.errors?.map(e => e.message) // Tambahkan detail error jika ada
+      });
     }
   }
 );
@@ -158,14 +180,17 @@ router.get('/tentor/level/:level', async (req, res, next) => {
 router.get('/tentor', async (req, res, next) => {
   try {
     const tentors = await Tentor.findAll();
-
     const host = `${req.protocol}://${req.get('host')}`;  
+    
     const data = tentors.map(t => {
       const plain = t.toJSON();
-      plain.fotoUrl = `${host}/uploads/tentor/${plain.foto}`;
-      plain.simUrl  = `${host}/uploads/tentor/${plain.sim}`;
-      plain.ktpUrl  = `${host}/uploads/tentor/${plain.ktp}`;
-      plain.cvUrl   = `${host}/uploads/tentor/${plain.cv}`;
+      
+      // Gunakan endpoint baru untuk mengakses file
+      if (plain.foto) plain.fotoUrl = `${host}/api/files/${plain.foto}`;
+      if (plain.sim) plain.simUrl = `${host}/api/files/${plain.sim}`;
+      if (plain.ktp) plain.ktpUrl = `${host}/api/files/${plain.ktp}`;
+      if (plain.cv) plain.cvUrl = `${host}/api/files/${plain.cv}`;
+      
       delete plain.password;              
       return plain;
     });
@@ -173,6 +198,8 @@ router.get('/tentor', async (req, res, next) => {
     res.json(data);
   } catch (err) { next(err); }
 });
+
+
 
 /*UPDATE DATA*/
 router.put('/users/:role/:id', async (req, res) => {
@@ -191,36 +218,70 @@ router.put('/users/:role/:id', async (req, res) => {
   }
 } );
 
-router.put('/tentor/:id', upload.fields([
-  { name: 'foto', maxCount: 1 },
-  { name: 'sim', maxCount: 1 },
-  { name: 'ktp', maxCount: 1 },
-  { name: 'cv', maxCount: 1 }
-]), 
-async (req, res) => {
-  try {
-    const { id } = req.params; // Get the tentor id from the URL
-    const tentorData = {
-      ...req.body,
-      foto: req.files?.foto ? req.files.foto[0].filename : undefined, // Only update if a new foto is uploaded
-      sim: req.files?.sim ? req.files.sim[0].filename : undefined, // Only update if a new sim is uploaded
-      ktp: req.files?.ktp ? req.files.ktp[0].filename : undefined, // Only update if a new ktp is uploaded
-      cv: req.files?.cv ? req.files.cv[0].filename : undefined, //
-    };
+router.put('/tentor/:id', 
+  uploadMiddleware.fields([
+    { name: 'foto', maxCount: 1 },
+    { name: 'sim', maxCount: 1 },
+    { name: 'ktp', maxCount: 1 },
+    { name: 'cv', maxCount: 1 }
+  ]), 
+  handleCloudinaryUploadMultiple, // Middleware untuk upload ke Cloudinary
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const tentorData = { ...req.body };
 
-    // Call the updateTentor service function
-    const updatedTentor = await authService.updateTentor(id, tentorData);
+      // Dapatkan data tentor lama untuk menghapus file lama jika ada
+      const existingTentor = await authService.getUserById(id, 'tentor');
+      const filesToDelete = [];
 
-    return res.status(200).json({
-      message: 'Tentor berhasil diperbarui!',
-      user: updatedTentor,
-    });
-  } catch (error) {
-    console.error('Update Tentor error:', error);
-    const status = error.name === 'SequelizeValidationError' ? 400 : 500;
-    return res.status(status).json({ message: error.message });
+      // Jika ada file baru diupload, tandai file lama untuk dihapus
+      if (req.files) {
+        if (req.files.foto) {
+          tentorData.foto = req.files.foto[0].driveFileId;
+          if (existingTentor.foto) filesToDelete.push(existingTentor.foto);
+        }
+        if (req.files.sim) {
+          tentorData.sim = req.files.sim[0].driveFileId;
+          if (existingTentor.sim) filesToDelete.push(existingTentor.sim);
+        }
+        if (req.files.ktp) {
+          tentorData.ktp = req.files.ktp[0].driveFileId;
+          if (existingTentor.ktp) filesToDelete.push(existingTentor.ktp);
+        }
+        if (req.files.cv) {
+          tentorData.cv = req.files.cv[0].driveFileId;
+          if (existingTentor.cv) filesToDelete.push(existingTentor.cv);
+        }
+      }
+
+      // Update data tentor
+      const updatedTentor = await authService.updateTentor(id, tentorData);
+
+      if (filesToDelete.length > 0) {
+        filesToDelete.forEach(async (fileId) => {
+          try {
+            await cloudina.deleteFile(fileId);
+          } catch (error) {
+            console.error(`Failed to delete old file ${fileId}:`, error);
+            // Log error tapi jangan gagalkan update
+          }
+        });
+      }
+
+      return res.status(200).json({
+        message: 'Tentor berhasil diperbarui!',
+        user: updatedTentor,
+      });
+    } catch (error) {
+      console.error('Update Tentor error:', error);
+      const status = error.name === 'SequelizeValidationError' ? 400 : 500;
+      return res.status(status).json({ 
+        message: error.message,
+        details: error.errors?.map(e => e.message)
+      });
+    }
   }
-}
 );
 
 /*DELETE USER*/

@@ -179,7 +179,7 @@ const generateHonorPdf = async (honorId) => {
     
     // Company info
     doc.fillColor(primaryColor)
-       .fontSize(24)
+       .fontSize(18)
        .font('Helvetica-Bold')
        .text('BIMBINGAN BELAJAR GALAKSI', 50, 30);
     
@@ -205,17 +205,17 @@ const generateHonorPdf = async (honorId) => {
     const statusColor = honorDetails.paymentStatus === 'Paid' ? successColor : dangerColor;
     
     doc.fillColor(primaryColor)
-       .fontSize(12)
+       .fontSize(10)
        .font('Helvetica-Bold')
        .text(`Honor ID: #${honorId}`, 400, 30)
        .fontSize(10)
        .font('Helvetica')
-       .text(`Tanggal: ${honorDate}`, 400, 50);
+       .text(`Tanggal: ${honorDate}`, 400, 60);
     
     doc.fillColor(statusColor)
        .fontSize(10)
        .font('Helvetica-Bold')
-       .text(`Status: ${honorDetails.paymentStatus}`, 400, 65);
+       .text(`Status: ${honorDetails.paymentStatus}`, 400, 75);
 
     // Garis pemisah
     doc.moveTo(50, 160)
