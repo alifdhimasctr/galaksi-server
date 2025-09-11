@@ -2,7 +2,7 @@
 const express = require('express');
 const router  = express.Router();
 const JadwalService = require('../services/JadwalService');
-const { authMiddleware } = require('../../middleware');  
+const { authMiddleware, authMiddlewareRole } = require('../../middleware');  
 
 
 router.put('/jadwal/request-present/:id',
@@ -23,6 +23,7 @@ router.put('/jadwal/request-present/:id',
 );
 
 router.put('/jadwal/confirm-present/:id',
+  authMiddlewareRole("siswa"),
   async (req, res) => {
     try {
       const { id } = req.params;

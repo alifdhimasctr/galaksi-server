@@ -63,12 +63,12 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-db.sync({ force: true }).then(() => {
-    console.log('Database & tables created!');
-}
-).catch((error) => {
-    console.error('Error creating database & tables:', error);
-});
+// db.sync({ force: true }).then(() => {
+//     console.log('Database & tables created!');
+// }
+// ).catch((error) => {
+//     console.error('Error creating database & tables:', error);
+// });
 
 
 
